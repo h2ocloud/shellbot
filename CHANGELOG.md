@@ -6,6 +6,26 @@
 > 撰寫規範見 [`docs/changelog-guide.md`](docs/changelog-guide.md)，
 > 由 `tests_changelog_format.py` 強制檢查。
 
+## v0.63.1 (2026-11-21)
+
+### Added
+
+- **A paired computer's「New session」dialog shows the agents installed on that computer.**
+  Asked for: opening a session on another computer offered only Claude, Codex and bash, so an agent set up over there
+  (in its own presets) had to be typed into the custom-command field. Now the dialog asks the other computer for its
+  presets (a new signed route, `GET /link/presets`, refused on a one-way pairing just like opening a session) and draws
+  one button per preset. A computer can name its main one with `"default_preset": "<preset name>"` in its config; that
+  button comes first and is the primary one. Only each preset's name and command are sent, and a command that carries
+  something like a key or token inline is left out. An older ShellFrame on the other end, an error or a timeout leaves
+  the three buttons it always had; the custom-command field stays. Covered by `tests_link_presets.py` and
+  `tests_remote_presets.js`.
+
+  **配對電腦的「新增 session」對話框顯示那台電腦裝的 agent。** 需求：在另一台電腦開 session 只有 Claude、Codex、bash 三個選項，那台自己設好的
+  agent（它的 presets）只能手打在自訂指令欄。現在對話框會先向那台要它的 presets（新的簽章介面 `GET /link/presets`，單向配對跟開 session 一樣會被拒），
+  每個 preset 一顆按鈕。那台可以在 config 用 `"default_preset": "<preset 名稱>"` 指定主要的一個，那顆排第一並高亮。只送出每個 preset 的名稱和指令，
+  指令裡直接帶著金鑰或 token 這類東西的不送。對方是舊版、出錯或逾時，就維持原本三顆按鈕；自訂指令欄保留。由 `tests_link_presets.py` 和
+  `tests_remote_presets.js` 守著。
+
 ## v0.63.0 (2026-11-20)
 
 ### Added
