@@ -9,6 +9,7 @@ js_api 對 frame_link.FrameLink 的薄包裝：配對、遠端分頁瀏覽/輸�
 import json
 
 import link_bots
+import link_presets
 from api_host import main
 
 
@@ -165,6 +166,10 @@ class LinkApiMixin:
     def link_remote_new(self, peer_id: str, cmd: str = "claude") -> str:
         return json.dumps(self._link().remote_new(peer_id, cmd),
                           ensure_ascii=False)
+
+    def link_remote_presets(self, peer_id: str) -> str:
+        """The other computer's new-session presets for the「新增 session」dialog (link_presets)."""
+        return json.dumps(link_presets.remote_presets(self._link(), peer_id), ensure_ascii=False)
 
     def link_remote_close(self, peer_id: str, sid: str) -> str:
         return json.dumps(self._link().remote_close(peer_id, sid),

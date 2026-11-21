@@ -27,6 +27,7 @@ import bridge_home
 import tg_reply_route
 import sf_lang
 import link_usage
+import link_presets
 import tab_delivery
 import tab_login
 import tmux_sessions
@@ -1412,6 +1413,8 @@ class RemoteApiMixin:
             return self._bots_delete_for_sfctl(args)
         elif cmd == "bots_link":
             return self._bots_link(args)
+        elif cmd == "presets_link":                   # GET /link/presets: what a paired computer may open here (link_presets)
+            return link_presets.public_presets(main.load_config())
         elif cmd == "tasks_link":                     # GET /link/tasks: this machine's task lists (api_tasks)
             return self._tasks_for_peer(args)
         elif cmd in ("ops", "ops_view", "ops_live"):      # GET /link/ops, /link/ops/view, POST /link/ops/live (link_ops)

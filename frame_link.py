@@ -1387,8 +1387,8 @@ class FrameLink:
                     events, tail = link._signals_since(since)
                     return self._send(200, {"success": True, "cursor": tail, "events": events},
                                       sign_for=peer, nonce=nonce)
-                if path in ("/link/bots", "/link/tasks", "/link/push/status", "/link/ops", "/link/ops/view"):
-                    cmd = {"/link/bots": "bots_link", "/link/tasks": "tasks_link", "/link/ops": "ops", "/link/ops/view": "ops_view"}.get(path, "push_status")
+                if path in ("/link/bots", "/link/tasks", "/link/push/status", "/link/ops", "/link/ops/view", "/link/presets"):
+                    cmd = {"/link/bots": "bots_link", "/link/tasks": "tasks_link", "/link/ops": "ops", "/link/ops/view": "ops_view", "/link/presets": "presets_link"}.get(path, "push_status")
                     code, res = link._bots_route(peer_id, cmd, {k: (q.get(k) or [""])[0] for k in (("rev", "lang", "sort") if "/ops" in path else ("rev",))})
                     return self._send(code, res, sign_for=peer, nonce=nonce)
                 if path == "/link/events":

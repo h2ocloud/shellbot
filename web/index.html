@@ -1516,6 +1516,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 <script src="connect.js"></script>
 <script src="ctxmenu.js"></script>
 <script src="layout.js"></script>
+<script src="remote_presets.js"></script>
 <script src="tabmodel.js"></script>
 <script src="termkeys.js"></script>
 <script src="guide.js"></script>
@@ -3917,11 +3918,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
     overlay.innerHTML = `
       <div class="modal" style="width:360px;padding:20px">
         <h2 style="font-size:14px">${tf('newRemoteSessionTitle', {peer: esc2(peer.name)})}</h2>
-        <div style="display:flex;flex-direction:column;gap:6px;margin:12px 0">
-          <button class="btn btn-primary" data-cmd="claude" style="padding:8px">Claude</button>
-          <button class="btn btn-ghost" data-cmd="sf-codex --dangerously-bypass-approvals-and-sandbox --search --no-alt-screen" style="padding:8px;border:1px solid #3b4261">Codex</button>
-          <button class="btn btn-ghost" data-cmd="bash" style="padding:8px;border:1px solid #3b4261">bash</button>
-        </div>
+        <div id="rn-btns" style="display:flex;flex-direction:column;gap:6px;margin:12px 0"></div>
         <div style="display:flex;gap:8px">
           <input type="text" id="rn-cmd" placeholder="${t('customCommandPlaceholder')}" style="flex:1;background:#1a1b26;border:1px solid #3b4261;border-radius:4px;padding:8px;color:#c0caf5;font-size:13px;outline:none"/>
           <button class="btn btn-primary" id="rn-run">${t('createSession')}</button>
@@ -3951,8 +3948,23 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
         }
       } catch (e) { err.style.color = '#f7768e'; err.textContent = t('sessionCreateError') + e; }
     }
-    overlay.querySelectorAll('[data-cmd]').forEach(b =>
-      b.addEventListener('click', () => create(b.dataset.cmd)));
+    // the buttons: the other computer's own presets, its default first and primary (web/remote_presets.js);
+    // drawn at once with the built-in three, redrawn when (if) its list arrives — an older one has none
+    const box = document.getElementById('rn-btns');
+    function draw(res) {
+      box.replaceChildren(...SFRemotePresets.buttons(res).map(b => {
+        const el = document.createElement('button');
+        el.className = 'btn ' + (b.primary ? 'btn-primary' : 'btn-ghost');
+        el.style.padding = '8px';
+        if (!b.primary) el.style.border = '1px solid #3b4261';
+        el.dataset.cmd = b.cmd; el.title = b.cmd; el.textContent = b.label;
+        return el;
+      }));
+    }
+    draw(null);
+    box.addEventListener('click', (e) => { const b = e.target.closest('[data-cmd]'); if (b) create(b.dataset.cmd); });
+    Promise.resolve().then(() => pywebview.api.link_remote_presets(peer.id))
+      .then(r => { if (overlay.isConnected) draw(JSON.parse(r)); }).catch(() => {});
     document.getElementById('rn-run').addEventListener('click', () => {
       const v = document.getElementById('rn-cmd').value.trim();
       if (v) create(v);
