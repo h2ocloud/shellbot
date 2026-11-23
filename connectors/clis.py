@@ -168,6 +168,14 @@ def gateway_paths() -> dict:
     py = os.path.abspath(sys.executable or "python3")
     if os.path.basename(py).lower() == "pythonw.exe":
         py = os.path.join(os.path.dirname(py), "python.exe")
+    elif not os.path.basename(py).lower().startswith("python"):
+        # The macOS app runs its venv's interpreter under the name ShellFrame (the name the system shows for its
+        # permissions); every AI starting the gateway under that name would look like another app.
+        for name in ("python3", "python"):
+            cand = os.path.join(os.path.dirname(py), name)
+            if os.path.exists(cand):
+                py = cand
+                break
     return {"python": py, "gateway": str(Path(__file__).resolve().parent.parent / "shellbot_mcp.py")}
 
 
