@@ -91,7 +91,7 @@ def open_page(browser, brief, st, usage):
             f"window.__state = {json.dumps(st)}; window.__usage = {json.dumps(usage)};"
             f"window.__briefs = {json.dumps([json.dumps(b) for b in brief])}; window.__brief_i = 0;")
     page.add_init_script(init + STUB)
-    page.goto((HERE / "web" / "index.html").as_uri())
+    page.goto((HERE / "web" / "index.html").as_uri(), wait_until="domcontentloaded")
     page.wait_for_function("window.__sfHost && Object.keys(window.__sfHost.sessions()).length > 0", timeout=15000)
     page.wait_for_timeout(900)
     return page, errors
@@ -141,6 +141,9 @@ with sync_playwright() as p:
     check("「目前 Session」顯示全域帳號", DEMO in scopes[0], scopes)
     check("…並標「全域」", "全域" in scopes[0], scopes)
     check("…不是「未登入」", "未登入" not in scopes[0], scopes)
+    btn = page.evaluate("""() => { const b = document.querySelector('[data-account-action="session"][data-ref="%s"]');
+        return b ? b.disabled : null; }""" % REF)
+    check("沒綁帳號時「切目前」仍可按（才能真的把分頁綁到這個帳號）", btn is False, btn)
     check("帳號列 4% / 92%", "4%" in (row_text(page, REF) or "") and "92%" in (row_text(page, REF) or ""),
           row_text(page, REF))
     after = pill(page)

@@ -5276,6 +5276,9 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
     const rows = (info.accounts || []).map(item => {
       const id = esc(item.id || '');
       const currentOn = current && current.id === item.id;
+      // A tab that only runs on the machine's own login is not pinned to this account:
+      // "switch current" must stay available so the user can pin it.
+      const pinnedOn = currentOn && info.current_source !== 'global_login';
       const globalOn = global && global.id === item.id;
       const tags = single ? t('cliManagedLogin')
         : `${currentOn ? t('currentSession') : ''}${currentOn && globalOn ? ' · ' : ''}${globalOn ? t('nextSession') : ''}`;
@@ -5283,7 +5286,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
         `<small>${tags}</small>` +
         `<div class="account-usage" data-usage-key="${provider}|${id}">${_accountUsageHtml(usage[item.id])}</div></div>` +
         (single ? '' :
-          `<button class="btn btn-ghost" data-account-action="session" data-provider="${provider}" data-ref="${id}" ${currentOn ? 'disabled' : ''}>${t('switchCurrent')}</button>` +
+          `<button class="btn btn-ghost" data-account-action="session" data-provider="${provider}" data-ref="${id}" ${pinnedOn ? 'disabled' : ''}>${t('switchCurrent')}</button>` +
           `<button class="btn btn-ghost" data-account-action="global" data-provider="${provider}" data-ref="${id}" ${globalOn ? 'disabled' : ''}>${t('setNext')}</button>`) +
         `</div>`;
     }).join('');

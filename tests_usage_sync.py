@@ -53,6 +53,7 @@ NEW_PAYLOAD = {
 }
 
 DEMO = "demo@example.test"
+FAR_FUTURE_MS = 4_000_000_000_000
 
 
 class World:
@@ -73,7 +74,7 @@ class World:
             root=self.home / "profiles", home=self.home,
             keychain_getter=self.keychain,
             profile_keychain_reader=lambda d: {"claudeAiOauth": {
-                "accessToken": self.profile_tokens.get(str(d), ""), "expiresAt": 9}})
+                "accessToken": self.profile_tokens.get(str(d), ""), "expiresAt": FAR_FUTURE_MS}})
 
     def write_claude_json(self):
         data = {}
@@ -94,7 +95,7 @@ class World:
     def oauth(self, env=None):
         d = (env or {}).get("CLAUDE_CONFIG_DIR")
         if d:
-            return {"accessToken": self.profile_tokens.get(d, ""), "expiresAt": 9}
+            return {"accessToken": self.profile_tokens.get(d, ""), "expiresAt": FAR_FUTURE_MS}
         return self.keychain().get("claudeAiOauth") or {}
 
     def close(self):
@@ -115,11 +116,18 @@ class Host(AccountsApiMixin):
         return {}
 
 
+saved_fakes = {}
+
+
 def make(world, clock, net):
     """把 usage_probe 與 api_host 接到假世界。回傳 (host, ctx)。"""
     ctx = probe_env(clock, net)
     ctx.__enter__()
     U._claude_oauth = world.oauth
+    # 不碰真的鑰匙圈與 ~/.claude.json：profile 鑰匙圈與全域帳號標籤都換成假的
+    saved_fakes.update(kc=AM.read_claude_profile_keychain, acct=U._claude_account)
+    AM.read_claude_profile_keychain = lambda d: {"claudeAiOauth": world.oauth({"CLAUDE_CONFIG_DIR": str(d)})}
+    U._claude_account = lambda: f"{world.email} · Team"
     U.PROVIDERS = ("claude",)
     ns = {
         "ACCOUNT_MANAGER": world.am, "account_manager": AM, "usage_probe": U,
@@ -136,6 +144,8 @@ _ORIG_PROVIDERS = U.PROVIDERS
 
 
 def done(ctx, world):
+    AM.read_claude_profile_keychain = saved_fakes["kc"]
+    U._claude_account = saved_fakes["acct"]
     U.PROVIDERS = _ORIG_PROVIDERS
     ctx.__exit__(None, None, None)
     world.close()
