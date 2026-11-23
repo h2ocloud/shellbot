@@ -69,7 +69,7 @@
   };
   // The kinds of way (route) a service is reached by, in a few words: what a connected row says it goes through.
   const KIND = {
-    claude_connector: ['Claude account connector', 'Claude 帳號連接器'], local_mcp: ['Local MCP', '本機 MCP'],
+    claude_connector: ['Claude account connector', 'Claude 帳號連接器'], local_mcp: ['Local MCP', '本機 MCP'], remote_mcp: ['Remote MCP', '遠端 MCP'],
     api_key: ['API key', 'API 金鑰'], oauth: ['Sign-in', '登入授權'],
   };
   const kindName = k => (KIND[k] ? t(KIND[k][0], KIND[k][1]) : '');
@@ -153,7 +153,8 @@
     note: '<rect x="4.5" y="3.5" width="15" height="17" rx="2.5"/><path d="M4.5 8h15M8.5 12h7M8.5 15.5h4.5"/>',
     message: '<path d="M12 4.5c4.7 0 8.5 3 8.5 6.8s-3.8 6.7-8.5 6.7c-1 0-2-.1-2.9-.4L5 19.5l1.2-3.6c-1.7-1.2-2.7-2.8-2.7-4.6 0-3.8 3.8-6.8 8.5-6.8z"/>',
     checklist: '<path d="M4 6.5l1.6 1.6L8.5 5.2M4 12.5l1.6 1.6 2.9-2.9M4 18.5l1.6 1.6 2.9-2.9M11.5 7h8.5M11.5 13h8.5M11.5 19h8.5"/>',
-    search: '<circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/>',
+    design: '<path d="M4.5 19.5l1-4.2L16.3 4.5a2 2 0 0 1 2.8 0l.4.4a2 2 0 0 1 0 2.8L8.7 18.5z"/><path d="M14 7l3 3"/>',
+    search: '<circle cx="10.5" cy="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/>',
   };
   const icon = key => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[key] || ICONS.plug}</svg>`;
 
@@ -507,6 +508,28 @@
       `<code>${esc((m.command || []).join(' '))}</code>${m.note ? `<small>${esc(pick(m.note))}</small>` : ''}</div>`).join('');
     return `<div class="cn-manual"><div class="cn-manual-head">${esc(t('Add these by hand: ShellBot only shows what to enter', '這些要自己加：ShellBot 只列出要填的內容'))}</div>${rows}</div>`;
   }
+  // A remote server added to each AI program (route kind remote_mcp): one line per AI and account folder, as the adapter reported it
+  // ("cli|folder|state|label"), and the AIs the service does not let connect, from the description (via "none"), with no button.
+  const ROW = {
+    added: ['Added', '已加入', 'ok'], present: ['Already there', '本來就有', 'ok'], signed_in: ['Signed in', '已登入', 'ok'],
+    needs_login: ['Needs sign-in', '還沒登入', 'warn'], unverified: ['Added, sign-in not readable', '已加入，看不出有沒有登入', 'warn'],
+    absent: ['Not added', '還沒加', 'warn'], conflict: ['Another address under that name, left alone', '同名但網址不同，沒有動它', 'warn'],
+    failed: ['Failed', '失敗', 'bad'], unknown: ['No answer', '沒有回應', 'bad'], missing: ['Not installed', '沒安裝', 'idle'],
+  };
+  function rowsBox(step) {
+    const route = curRoute();
+    if (!route || route.kind !== 'remote_mcp') return '';
+    const raw = (step.check && step.check.rows) || (step.result && step.result.rows) || [];
+    const list = raw.map(x => String(x).split('|')).filter(a => a.length >= 3 && ROW[a[2]]).map(a => {
+      const w = ROW[a[2]], where = a[1] === 'default' ? t('Default folder', '預設資料夾') : (a[3] || t('Account folder ', '帳號資料夾 ') + a[1].slice(-4));
+      return `<li class="tone-${w[2]}" data-cli="${esc(a[0])}" data-state="${esc(a[2])}"><span class="cn-dot ${w[2]}"></span>` +
+        `<b>${esc(cliName(a[0]))}</b><small>${esc(a[0] === 'cursor' ? '~/.cursor/mcp.json' : where)}</small><span class="cn-row-st">${esc(t(w[0], w[1]))}</span></li>`;
+    }).join('');
+    const no = {};
+    Object.keys(route.clis || {}).forEach(k => { const c = route.clis[k] || {}; if (c.via === 'none') (no[pick(c.note)] = no[pick(c.note)] || []).push(cliName(k)); });
+    const off = Object.keys(no).map(n => `<p class="cn-note" data-notlisted="1"><b>${esc(no[n].join(t(', ', '、')))}</b> ${esc(t('(no button): ', '（沒有按鈕）：'))}${esc(n)}</p>`).join('');
+    return (list ? `<ul class="cn-rows" aria-label="${esc(t('Where it stands', '各處的狀況'))}">${list}</ul>` : '') + (step.actions && step.actions.length ? off : '');
+  }
   function stuckPanel(step) {
     const items = (step.stuck || []).map(p => {
       const on = S.prob === p.id;
@@ -658,7 +681,7 @@
     const how = (step.how || []).length ? `<ol class="cn-how">${step.how.map(l => `<li>${esc(pick(l))}</li>`).join('')}</ol>` : '';
     const see = step.see ? `<div class="cn-see"><b>${esc(t('What you should see', '看到這個就對了'))}</b><p>${esc(pick(step.see))}</p></div>` : '';
     const note = step.note ? `<div class="cn-fyi"><b>${esc(t('Good to know', '先知道'))}</b><p>${esc(pick(step.note))}</p></div>` : '';
-    return head + how + actionsBox(step) + resultBox(step) + manualBox(step) + errBox() + see + note;
+    return head + how + actionsBox(step) + resultBox(step) + manualBox(step) + rowsBox(step) + errBox() + see + note;
   }
   function connectedBody() {
     const st = S.status || {};

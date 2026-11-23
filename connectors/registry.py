@@ -26,13 +26,13 @@ import threading
 from pathlib import Path
 
 from . import SCHEMA, secrets
-from .clis import CLI_IDS
+from .clis import CLI_IDS, OWN_PREFIX, REMOTE_MODES
 
 SERVICE_ID = re.compile(r"^[a-z][a-z0-9_-]{0,30}$")
 SERVER_NAME = re.compile(r"^shellbot-[a-z0-9][a-z0-9_-]{0,40}$")
 CONNECT_TAG = re.compile(r"^\s*connect\s*:\s*([a-z][a-z0-9_-]{0,30})\s*$", re.I)    # [[SF:RED:connect:<service>]]
-KINDS = ("claude_connector", "local_mcp", "api_key", "oauth")
-VIAS = ("connector", "mcp", "none")
+KINDS = ("claude_connector", "local_mcp", "remote_mcp", "api_key", "oauth")
+VIAS = ("connector", "mcp", "remote", "none")
 TONES = ("good", "warn", "bad", "info")
 BUILTINS = ("cli_add", "cli_remove", "cli_check", "secret_set")
 CHECK_ON = ("enter", "done")
@@ -229,6 +229,18 @@ def _validate_mcp(errs, w, mcp, route):
             errs.append(f"{w}.env_from_secret.{k}: no secret '{sid}' on this route")
 
 
+def _validate_remote(errs, w, remote):
+    """A `remote_mcp` route's server: the name the AI programs list it under (the person's own, so not shellbot-…)
+    and its https address. ShellBot looks at an entry of that name first and never replaces or removes one."""
+    if not isinstance(remote, dict) or set(remote) - {"name", "url"}:
+        errs.append(f"{w}: {{\"name\": <server name>, \"url\": <https address>}}")
+        return
+    name = str(remote.get("name") or "")
+    if not re.match(r"^[a-z][a-z0-9_-]{0,30}$", name) or name.startswith(OWN_PREFIX):
+        errs.append(f"{w}.name: lowercase letters, digits, - and _, and not shellbot-…")
+    _check_url(errs, f"{w}.url", remote.get("url"))
+
+
 def _validate_detect(errs, w, det, route):
     """How a route already set up on this computer is recognized (detect.py): the name Claude lists a connector
     under, or the packages a local server's command runs. Optional; detect.py has a default for each."""
@@ -331,6 +343,8 @@ def validate(desc) -> list:
                 errs.append(f"{w}.clis.{cli}: 'connector' is the Claude account's connector, for claude only")
             elif via == "mcp" and not r.get("mcp"):
                 errs.append(f"{w}.clis.{cli}: 'mcp' needs the route's mcp")
+            elif via == "remote" and (r.get("kind") != "remote_mcp" or cli not in REMOTE_MODES):
+                errs.append(f"{w}.clis.{cli}: 'remote' is a remote_mcp route's, for the programs that can take one: {sorted(REMOTE_MODES)}")
             _check_text(errs, f"{w}.clis.{cli}.note", (spec or {}).get("note"), optional=True)
         if r.get("targets") not in (None, "all"):
             errs.append(f"{w}.targets: 'all' or nothing")
@@ -340,6 +354,12 @@ def validate(desc) -> list:
                 errs.append(f"{w}.config[{i}]: {{\"option\": <a step option id>, \"key\": \"connect.<service>.<name>\"}}")
         if r.get("mcp") is not None:
             _validate_mcp(errs, f"{w}.mcp", r["mcp"], r)
+        if r.get("kind") == "remote_mcp":
+            if r.get("mcp") is not None:
+                errs.append(f"{w}.mcp: a remote_mcp route has `remote`, not `mcp`")
+            _validate_remote(errs, f"{w}.remote", r.get("remote"))
+        elif r.get("remote") is not None:
+            errs.append(f"{w}.remote: only a remote_mcp route has one")
         if r.get("detect") is not None:
             _validate_detect(errs, f"{w}.detect", r["detect"], r)
         for s in r.get("secrets") or []:
