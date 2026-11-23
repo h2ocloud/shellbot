@@ -102,6 +102,42 @@ def read_claude_profile_oauth(config_dir, keychain_reader=None) -> dict:
         return {}
 
 
+def token_fingerprint(oauth) -> str:
+    """Fingerprint of a login's token, to notice that the user signed in again.
+
+    A new /login (or the CLI refreshing an expired token) changes the access
+    token and its expiry; hashing both means neither the token nor anything
+    reversible is kept. "" = there was no usable token at all.
+    """
+    token = (oauth or {}).get("accessToken") or ""
+    if not token:
+        return ""
+    raw = f"{token}|{(oauth or {}).get('expiresAt') or ''}"
+    return hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+
+def login_changed(state, oauth_reader) -> bool:
+    """Did the login change since this cache entry's last AUTH failure?
+
+    Only an auth-type failure (401/403, no credential, expired snapshot) leaves
+    ``auth_fp`` behind; a 429 or a network error never does, so a rate-limited
+    account keeps its full cooldown. When the credential has changed the old
+    cooldown protects nothing (the new token has its own budget and the failure
+    it was guarding against is gone), so the caller may retry once right away.
+    The marker is consumed, which keeps this to one extra query per re-login.
+    """
+    fp = state.get("auth_fp")
+    if fp is None:
+        return False
+    try:
+        changed = token_fingerprint(oauth_reader()) != fp
+    except Exception:
+        return False
+    if changed:
+        state["auth_fp"] = None
+    return changed
+
+
 def _has_tokens(provider: str, credential) -> bool:
     """True when a credential blob carries a usable token (not a blank stub).
 
@@ -332,6 +368,37 @@ class AccountManager:
             if item.get("id") == ref:
                 return item
         return None
+
+    @staticmethod
+    def _same(a, b) -> bool:
+        norm = lambda v: " ".join(str(v or "").split()).casefold()
+        return norm(a) == norm(b)
+
+    def match_profile(self, cfg: dict, provider: str, discovered: dict | None):
+        """Registered profile ref that is the SAME account as ``discovered``, else None.
+
+        Used when a tab has no pinned profile and so runs on the machine's own
+        login (~/.claude): that login is worth treating as a known profile so
+        the pill and the accounts panel share one cache. Deliberately strict —
+        a wrong match would show one account's quota under another's name:
+        same e-mail AND same organisation AND same plan (blank only equals
+        blank). A login whose credential and account data disagree
+        (``mismatch``) matches nothing, and so does an ambiguous result.
+        """
+        if not discovered or discovered.get("mismatch"):
+            return None
+        email = discovered.get("email") or ""
+        if not email.strip():
+            return None
+        hits = [
+            item.get("id") for item in
+            ((cfg.get("accounts", {}).get("profiles", {}) or {}).get(provider, []) or [])
+            if item.get("id")
+            and self._same(item.get("email"), email)
+            and self._same(item.get("organization"), discovered.get("organization"))
+            and self._same(item.get("plan"), discovered.get("plan"))
+        ]
+        return hits[0] if len(hits) == 1 else None
 
     def valid_ref(self, cfg: dict, provider: str, ref: str) -> bool:
         return bool(ref and self.profile(cfg, provider, ref)

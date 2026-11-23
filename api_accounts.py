@@ -63,6 +63,26 @@ class AccountsApiMixin:
         return {"current": item, "global": item, "accounts": [item],
                 "logged_in": True, "single_account": True}
 
+    # Providers whose tabs, when no profile is pinned, run on the machine's own
+    # login (~/.claude). Codex is not here: a blank Codex ref already resolves
+    # to the global profile (account_manager.FALLBACK_PROVIDERS).
+    _GLOBAL_LOGIN_PROVIDERS = ("claude",)
+
+    def _global_login(self, provider: str, cfg: dict):
+        """(matched ref, discovered login, matched profile); None parts when absent.
+
+        The ref is set only when the login is strictly the same account as a
+        registered profile (AccountManager.match_profile); otherwise callers
+        keep using the un-keyed global reading.
+        """
+        am = main.ACCOUNT_MANAGER
+        try:
+            discovered = am.discover(provider)
+        except Exception:
+            return None, None, None
+        ref = am.match_profile(cfg, provider, discovered) if discovered else None
+        return ref, discovered, am.profile(cfg, provider, ref) if ref else None
+
     def _account_state(self, sid: str = ""):
         cfg = self._account_config()
         session = self.sessions.get(sid)
@@ -74,6 +94,20 @@ class AccountsApiMixin:
             if provider not in main.account_manager.PROVIDERS:
                 state["providers"][provider] = self._single_account_state(provider)
             entry = state["providers"].setdefault(provider, {})
+            if (provider in self._GLOBAL_LOGIN_PROVIDERS and session
+                    and not (session.account_refs or {}).get(provider)):
+                # A tab with no pinned account is not "signed out": it runs on
+                # the machine's own login (the ~/.claude one), which is not
+                # necessarily the config's "global" pointer. Show that account,
+                # flagged as global; only a login we really cannot find reads
+                # as not signed in.
+                ref, discovered, profile = self._global_login(provider, cfg)
+                current = dict(profile) if profile else None
+                if not current and discovered:
+                    current = {"id": "", **{k: discovered.get(k, "") for k in
+                                            ("email", "label", "plan", "organization")}}
+                entry["current"] = current
+                entry["current_source"] = "global_login" if current else ""
             # "not installed" and "installed but not signed in" need different
             # advice, so the panel gets both facts instead of one blank row.
             entry["installed"] = main.usage_probe.provider_installed(provider)
@@ -535,7 +569,10 @@ class AccountsApiMixin:
                     continue
                 # The account the provider is really signed in as right now:
                 # it may read from the canonical location instead of a snapshot.
-                current = (main.ACCOUNT_MANAGER.discover(provider) or {}).get("id")
+                # Claude: strict same-account match (e-mail + organisation + plan),
+                # the rule the pill uses, so both land on one cache.
+                matched, found, _ = self._global_login(provider, cfg)
+                current = matched if provider in self._GLOBAL_LOGIN_PROVIDERS else (found or {}).get("id")
                 for item in (accounts.get("profiles") or {}).get(provider, []) or []:
                     ref = item.get("id")
                     if ref:
@@ -574,10 +611,25 @@ class AccountsApiMixin:
         # Session._account_refs_authoritative); env_for needs a real ref, so
         # fall back to the provider's global credentials instead of erroring.
         env = main.ACCOUNT_MANAGER.env_for(provider, ref) if ref else {}
+        cfg = self._account_config() if provider else {}
+        # The machine's own login, when it is a registered account: a tab that
+        # runs on it (no pinned ref, or pinned to that very account) reads the
+        # same cache and cooldown as that account's row in the accounts panel.
+        shared_ref = None
+        if provider in self._GLOBAL_LOGIN_PROVIDERS:
+            matched, _, profile = self._global_login(provider, cfg)
+            if matched and (not ref or ref == matched):
+                shared_ref = matched
+        if shared_ref:
+            result = usage_probe.account_usage(
+                provider, env=env, ref=shared_ref,
+                account=usage_probe.profile_account(profile), is_current=True)
+            result["account_ref"] = shared_ref
+            return result
         result = main.usage_probe.probe_data(session.cmd, env=env)
-        profile = main.ACCOUNT_MANAGER.profile(
-            self._account_config(), provider, ref
-        ) if ref else None
+        if ref:
+            result["account_ref"] = ref
+        profile = main.ACCOUNT_MANAGER.profile(cfg, provider, ref) if ref else None
         if profile:
             result["account"] = main.usage_probe.profile_account(profile)
         # Existing Codex tmux processes predate per-account CODEX_HOME and
