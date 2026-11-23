@@ -251,7 +251,7 @@ check("the FAQ answers why not ShellBot, each account, and how to take it back",
       and "claude mcp remove figma" in next(q for q in desc["faq"] if q["id"] == "remove")["a"]["en"]
       and "codex mcp remove figma" in next(q for q in desc["faq"] if q["id"] == "remove")["a"]["en"])
 text = json.dumps(desc, ensure_ascii=False)
-check("no secret and no personal name in the description", "sk-" not in text and "Howard" not in text and "@" not in text.replace("@scope", ""), "")
+check("no secret and no e-mail address in the description (names: tests_repo_hygiene.py)", "sk-" not in text and "@" not in text.replace("@scope", ""), "")
 
 # the adapter, run the way the engine runs it
 home, cfg = world()
