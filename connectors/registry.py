@@ -169,6 +169,12 @@ def _validate_step(errs, w, st, route, ids, is_last):
             errs.append(f"{aw}: secret_set needs the route's secrets")
         if a.get("after") not in (None, "check"):
             errs.append(f"{aw}.after: 'check' or nothing")
+        if a.get("input") is not None:                          # a field the person types or pastes into, next to the button
+            if b != "secret_set" or not isinstance(a["input"], dict):
+                errs.append(f"{aw}.input: only on a secret_set action, an object")
+            else:
+                _check_text(errs, f"{aw}.input.label", a["input"].get("label"))
+                _check_text(errs, f"{aw}.input.placeholder", a["input"].get("placeholder"), optional=True)
         _check_states(errs, f"{aw}.results", a.get("results") or {})
         for code, rs in (a.get("results") or {}).items():          # a result may say "ask again with this action" (the page does, while a sign-in waits)
             if isinstance(rs, dict) and "poll" in rs and rs["poll"] not in {x.get("id") for x in st.get("actions") or [] if isinstance(x, dict)}:
@@ -326,6 +332,12 @@ def validate(desc) -> list:
             elif via == "mcp" and not r.get("mcp"):
                 errs.append(f"{w}.clis.{cli}: 'mcp' needs the route's mcp")
             _check_text(errs, f"{w}.clis.{cli}.note", (spec or {}).get("note"), optional=True)
+        if r.get("targets") not in (None, "all"):
+            errs.append(f"{w}.targets: 'all' or nothing")
+        opt_ids = {o.get("id") for st in r.get("steps") or [] if isinstance(st, dict) for o in st.get("options") or [] if isinstance(o, dict)}
+        for i, c in enumerate(r.get("config") or []):
+            if not (isinstance(c, dict) and c.get("option") in opt_ids and re.fullmatch(r"connect\.[a-z0-9_]{1,30}\.[a-z0-9_]{1,30}", str(c.get("key") or ""))):
+                errs.append(f"{w}.config[{i}]: {{\"option\": <a step option id>, \"key\": \"connect.<service>.<name>\"}}")
         if r.get("mcp") is not None:
             _validate_mcp(errs, f"{w}.mcp", r["mcp"], r)
         if r.get("detect") is not None:

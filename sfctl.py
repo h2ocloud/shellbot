@@ -905,6 +905,13 @@ def main():
     p_con.add_argument("--reconnect", action="store_true", help="start: begin again after a service needs connecting again")
     p_con.add_argument("--refresh", action="store_true", help="status: run the health check first")
     p_con.add_argument("--json", action="store_true", help="Print the answer as JSON")
+    p_call = sub.add_parser("call", help="Call a connected service's tool from a script (GitHub): call <service> <tool> [--args '{json}'] prints "
+                                         "the answer as JSON; call --list shows the tools. Runs in this process (not through the app); "
+                                         "read-only unless the user turned writing on in Settings → Connect")
+    p_call.add_argument("service", nargs="?", default="", help="Service id, for example github")
+    p_call.add_argument("tool", nargs="?", default="", help="The tool's own name (list_issues), with or without the service prefix")
+    p_call.add_argument("--args", dest="call_args", default="", help="The tool's arguments as one JSON object")
+    p_call.add_argument("--list", dest="call_list", action="store_true", help="List the tools that can be called")
     p_task = sub.add_parser("task", help="Tasks kept across sessions and bots (state.db): add \"title\"; list; mine; show N; "
                                           "update N; note N \"text\"; done N [\"result\"]; drop N [\"why\"]; stuck")
     p_task.add_argument("action", choices=["add", "list", "mine", "show", "update", "note", "done", "drop", "stuck"])
@@ -1220,6 +1227,15 @@ def main():
     elif args.cmd == "connect":
         _print_result(_rpc("connect", {"action": args.action, "service": args.service, "route": args.route, "reconnect": args.reconnect,
                                        "refresh": args.refresh, "json": args.json, "op": args.op, "act": args.act_id}, timeout=60))
+    elif args.cmd == "call":
+        if not args.call_list and not (args.service and args.tool):
+            print("ERR call needs <service> <tool> (or --list)")
+            return 2
+        _load_sf_notify()          # puts the install directory on sys.path
+        import shellbot_mcp
+        code, out = shellbot_mcp.cli_call(args.service, args.tool, args.call_args, args.call_list)
+        print(json.dumps(out, ensure_ascii=False, indent=2))
+        return code
     elif args.cmd == "task":
         return _cmd_task(args)
     elif args.cmd == "deliver":

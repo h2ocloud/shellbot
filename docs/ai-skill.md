@@ -472,6 +472,18 @@ the Claude account's connector and your tab is not a Claude tab, the service is 
 own setting) and `protocols` (every way, each `checked` / `found` / `broken` / `none`). Never change or remove the user's
 own entry: `sfctl connect disconnect` does not either.
 
+**Calling a connected service from a script** (GitHub, read-only unless the user turned writing on in Settings → Connect):
+
+```bash
+sfctl call --list                                 # JSON: the tools you can call (service, tool, description), and why one is unavailable
+sfctl call github list_issues --args '{"owner":"o","repo":"r","perPage":5}'   # JSON: ok, isError, content, data (the text parsed when it is JSON)
+```
+
+It runs in the `sfctl` process itself (not through the app) with the token ShellBot keeps; you never see or handle the token.
+Exit 0 on success, 1 when the service is not connected / refused / the tool failed (`code` and `message` say which), 2 for a bad
+call (unknown service or tool, `--args` not a JSON object). A tab that is a Claude/Codex/… AI program with the ShellBot
+gateway added also has the same tools as `github_…` MCP tools; `shellbot_status` says why they are missing.
+
 ## 4.9 Tasks (work that outlives this turn)
 
 ShellBot keeps tasks in one database on this computer (`state.db`), so the next session, another bot and the user can

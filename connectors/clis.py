@@ -19,9 +19,12 @@ their `mcp add`. OpenCode's `mcp add` asks questions, Cursor Agent has no add co
 settings file: for those ShellBot shows what to enter (`manual_entry`).
 """
 
+import os
 import re
 import subprocess
+import sys
 from collections import namedtuple
+from pathlib import Path
 
 from . import secrets
 
@@ -158,11 +161,47 @@ def _has_name(out: str, name: str) -> bool:
     return bool(re.search(r"(?<![\w-])" + re.escape(name.lower()) + r"(?![\w-])", out or ""))
 
 
-def server_command(mcp: dict, win: bool = False) -> list:
-    """The program and arguments an AI program starts for the server."""
-    if win and mcp.get("win_command"):
-        return list(mcp["win_command"])
-    return [mcp["command"], *mcp.get("args", [])]
+def gateway_paths() -> dict:
+    """The absolute paths a description's `{python}` and `{gateway}` stand for: this install's own interpreter (the
+    venv's, as the app runs under it; `python.exe` beside a `pythonw.exe`) and its `shellbot_mcp.py`. An AI program
+    is started from anywhere, so the server entry must not depend on the PATH or the working folder."""
+    py = os.path.abspath(sys.executable or "python3")
+    if os.path.basename(py).lower() == "pythonw.exe":
+        py = os.path.join(os.path.dirname(py), "python.exe")
+    elif not os.path.basename(py).lower().startswith("python"):
+        # The macOS app runs its venv's interpreter under the name ShellFrame (the name the system shows for its
+        # permissions); every AI starting the gateway under that name would look like another app.
+        for name in ("python3", "python"):
+            cand = os.path.join(os.path.dirname(py), name)
+            if os.path.exists(cand):
+                py = cand
+                break
+    return {"python": py, "gateway": str(Path(__file__).resolve().parent.parent / "shellbot_mcp.py")}
+
+
+def server_command(mcp: dict, win: bool = False, paths: dict = None) -> list:
+    """The program and arguments an AI program starts for the server. `{python}` and `{gateway}` in it are the
+    install's absolute paths (`gateway_paths`, or the `paths` handed in)."""
+    cmd = list(mcp["win_command"]) if win and mcp.get("win_command") else [mcp["command"], *mcp.get("args", [])]
+    if any("{python}" in w or "{gateway}" in w for w in cmd):
+        p = paths or gateway_paths()
+        cmd = [w.replace("{python}", p["python"]).replace("{gateway}", p["gateway"]) for w in cmd]
+    return cmd
+
+
+def profile_dirs(cli: str) -> list:
+    """The account folders ShellBot keeps for a CLI (`account-profiles/<cli>/*` in its config folder), sorted."""
+    if cli not in ("claude", "codex"):
+        return []
+    try:
+        import sf_config
+        base = sf_config.config_dir() / "account-profiles" / cli
+        return sorted(str(p) for p in base.iterdir() if p.is_dir())
+    except OSError:
+        return []
+
+
+_HOME_ENV = {"claude": "CLAUDE_CONFIG_DIR", "codex": "CODEX_HOME"}
 
 
 def mode_for(cli: str, kind: str) -> str:
@@ -180,12 +219,15 @@ class Clis:
     `finder(cli) -> path | None` (both replaceable), with `env` as the child environment (a dict, or a
     function `env(cli) -> dict` so each program runs with its own account folder)."""
 
-    def __init__(self, runner=None, finder=None, env=None, win: bool = False, timeout: float = TIMEOUT_S):
+    def __init__(self, runner=None, finder=None, env=None, win: bool = False, timeout: float = TIMEOUT_S,
+                 profiles=None, paths: dict = None):
         self.runner = runner or default_runner
         self.finder = finder or default_finder
         self.env = env
         self.win = win
         self.timeout = timeout
+        self.profiles = profiles or profile_dirs        # profiles(cli) -> the account folders of that CLI (replaceable)
+        self.paths = paths                              # what `{python}` / `{gateway}` stand for; None: this install's
 
     def installed(self, cli: str) -> bool:
         return bool(self.finder(cli))
@@ -206,57 +248,93 @@ class Clis:
             return {"state": "missing", "cli": cli, "server": server}
         return None
 
-    def _run(self, argv, cli=None):
+    def _run(self, argv, cli=None, home=None):
+        """Run a program. `home` (None: the account folder a new tab would use) is "" for the CLI's default folder
+        (`~/.claude`, `~/.codex`) or the path of one account folder."""
         env = self.env(cli) if callable(self.env) else self.env       # a program's own account folder: env(cli) -> dict
+        if home is not None and cli in _HOME_ENV:
+            env = dict(env if env is not None else os.environ)
+            env.pop(_HOME_ENV[cli], None)
+            if home:
+                env[_HOME_ENV[cli]] = home
         return self.runner(argv, self.timeout, env)
 
-    def remove(self, cli: str, server: str) -> dict:
-        """{"state": "removed" | "absent" | "missing" | "manual" | "unsupported" | "failed"}."""
+    def homes(self, cli: str) -> list:
+        """Every account folder an entry should be in for a CLI: its default one ("") and each account folder ShellBot
+        keeps. A CLI with one settings place has just [""]; there `_run` leaves the environment as it is."""
+        if cli not in _HOME_ENV:
+            return [None]
+        return ["", *[h for h in self.profiles(cli) if h]]
+
+    def version(self, cli: str):
+        """(major, minor, patch) from `<cli> --version`, or None when it does not say."""
+        binary = self.finder(cli)
+        if not binary:
+            return None
+        r = self._run([binary, "--version"], cli)
+        m = re.search(r"(\d+)\.(\d+)(?:\.(\d+))?", r.out or "") if r.rc == 0 else None
+        return tuple(int(x or 0) for x in m.groups()) if m else None
+
+    def remove(self, cli: str, server: str, all_homes: bool = False) -> dict:
+        """{"state": "removed" | "absent" | "missing" | "manual" | "unsupported" | "failed"}. With `all_homes`, from
+        every account folder of the CLI (default one and each profile)."""
         why = self._gate(cli, server)
         if why:
             return why
-        r = self._run(_argv(cli, "remove", self.finder(cli), server), cli)
-        if r.rc == 0:
-            return {"state": "removed", "cli": cli, "server": server}
-        return {"state": "absent" if r.rc > 0 else "failed", "cli": cli, "server": server}
+        states = []
+        for home in (self.homes(cli) if all_homes else [None]):
+            r = self._run(_argv(cli, "remove", self.finder(cli), server), cli, home)
+            states.append("removed" if r.rc == 0 else "absent" if r.rc > 0 else "failed")
+        state = "failed" if "failed" in states else "removed" if "removed" in states else "absent"
+        return {"state": state, "cli": cli, "server": server, "homes": len(states)}
 
-    def add(self, cli: str, mcp: dict, extra_env: dict = None) -> dict:
+    def add(self, cli: str, mcp: dict, extra_env: dict = None, all_homes: bool = False) -> dict:
         """Put ShellBot's server into one program: remove ours, add ours. `extra_env` holds the values that
         come from the key store (a secret lands in that program's own settings: its allowed place).
-        {"state": "added" | "replaced" | "missing" | "manual" | "unsupported" | "failed", "shown": <masked command>}"""
+        {"state": "added" | "replaced" | "missing" | "manual" | "unsupported" | "failed", "shown": <masked command>}
+        With `all_homes`, into every account folder of the CLI (its default one and each profile); one that fails
+        makes the whole answer `failed` (running it again is safe), `homes` says how many were done."""
         server = mcp["server"]
         why = self._gate(cli, server)
         if why:
             return why
         binary = self.finder(cli)
         env = {**(mcp.get("env") or {}), **(extra_env or {})}
-        gone = self._run(_argv(cli, "remove", binary, server), cli)
-        argv = _argv(cli, "add", binary, server, server_command(mcp, self.win), env)
+        argv = _argv(cli, "add", binary, server, server_command(mcp, self.win, self.paths), env)
         shown = secrets.mask(" ".join(argv), known=(extra_env or {}).values())
-        r = self._run(argv, cli)
-        if r.rc != 0:
-            return {"state": "failed", "cli": cli, "server": server, "shown": shown}
-        return {"state": "replaced" if gone.rc == 0 else "added", "cli": cli, "server": server, "shown": shown}
+        states = []
+        for home in (self.homes(cli) if all_homes else [None]):
+            gone = self._run(_argv(cli, "remove", binary, server), cli, home)
+            r = self._run(argv, cli, home)
+            states.append("failed" if r.rc != 0 else "replaced" if gone.rc == 0 else "added")
+        state = "failed" if "failed" in states else "replaced" if all(x == "replaced" for x in states) else "added"
+        return {"state": state, "cli": cli, "server": server, "shown": shown, "homes": len(states)}
 
-    def check(self, cli: str, server: str) -> dict:
+    def check(self, cli: str, server: str, all_homes: bool = False) -> dict:
         """{"state": "present" | "absent" | "unknown" | "missing" | "manual" | "unsupported"}. `unknown`
-        when the program did not answer in time (some start the server to answer): not the same as absent."""
+        when the program did not answer in time (some start the server to answer): not the same as absent.
+        With `all_homes`: present only when it is in every account folder; absent when it is missing from any."""
         why = self._gate(cli, server)
         if why:
             return why
         op = _lookup_op(cli)
-        r = self._run(_argv(cli, op, self.finder(cli), server), cli)
-        if r.rc == -2:
-            return {"state": "unknown", "cli": cli, "server": server}
-        present = (r.rc == 0) if op == "get" else (r.rc == 0 and _has_name(r.out, server))
-        return {"state": "present" if present else "absent", "cli": cli, "server": server}
+        states = []
+        for home in (self.homes(cli) if all_homes else [None]):
+            r = self._run(_argv(cli, op, self.finder(cli), server), cli, home)
+            if r.rc == -2:
+                states.append("unknown")
+                continue
+            present = (r.rc == 0) if op == "get" else (r.rc == 0 and _has_name(r.out, server))
+            states.append("present" if present else "absent")
+        state = "absent" if "absent" in states else "unknown" if "unknown" in states else "present"
+        return {"state": state, "cli": cli, "server": server}
 
     def manual_entry(self, cli: str, mcp: dict) -> dict:
         """What a person enters by hand for a program ShellBot cannot set up: the program, its arguments
         and the environment names. Values that come from the key store are never shown, only their names."""
         secret_names = sorted((mcp.get("env_from_secret") or {}))
         return {"cli": cli, "where": SUPPORT[cli]["where"], "note": SUPPORT[cli]["note"], "server": mcp["server"],
-                "command": server_command(mcp, self.win),
+                "command": server_command(mcp, self.win, self.paths),
                 "env": {k: v for k, v in (mcp.get("env") or {}).items()}, "env_secret_names": secret_names}
 
 
