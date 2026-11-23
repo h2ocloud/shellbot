@@ -1,0 +1,679 @@
+{
+  "schema": 1,
+  "id": "github",
+  "name": {
+    "en": "GitHub",
+    "zh": "GitHub"
+  },
+  "icon": "code",
+  "summary": {
+    "en": "Let your AIs read your repositories, issues, pull requests and workflow runs",
+    "zh": "讓 AI 讀你的 repo、issue、pull request 和 workflow 執行結果"
+  },
+  "category": {
+    "id": "development",
+    "name": {
+      "en": "Development",
+      "zh": "開發"
+    }
+  },
+  "recommended": true,
+  "platforms": [
+    "mac",
+    "windows"
+  ],
+  "adapter": "connectors.services.github",
+  "scopes": [
+    {
+      "id": "read",
+      "label": {
+        "en": "Read repositories, issues, pull requests and workflow runs",
+        "zh": "讀 repo、issue、pull request 和 workflow 執行結果"
+      },
+      "required": true
+    },
+    {
+      "id": "write",
+      "label": {
+        "en": "Create and change issues, comments and pull requests (off unless you turn it on)",
+        "zh": "建立和修改 issue、留言和 pull request（預設關閉，要你自己打開）"
+      },
+      "required": false
+    }
+  ],
+  "health": {
+    "ttl_s": 300
+  },
+  "routes": [
+    {
+      "id": "token",
+      "kind": "api_key",
+      "recommended": true,
+      "minutes": 5,
+      "scopes": [
+        "read"
+      ],
+      "name": {
+        "en": "Use a personal access token (every AI)",
+        "zh": "用個人 token（每種 AI 都能用）"
+      },
+      "blurb": {
+        "en": "ShellBot keeps a GitHub token you make, in this computer's key store, and runs one server of its own that every AI program here can use. Read-only unless you turn writing on.",
+        "zh": "ShellBot 把你建立的 GitHub token 存在這台電腦的系統鑰匙圈，並跑一個自己的伺服器，這裡每個 AI 程式都能用。預設唯讀，寫入要你自己打開。"
+      },
+      "needs": [
+        {
+          "en": "A GitHub account",
+          "zh": "一個 GitHub 帳號"
+        },
+        {
+          "en": "A fine-grained personal access token",
+          "zh": "一個細粒度個人 token"
+        }
+      ],
+      "targets": "all",
+      "clis": {
+        "claude": {
+          "via": "mcp",
+          "note": {
+            "en": "ShellBot adds it for you to ~/.claude and to every Claude account folder it keeps.",
+            "zh": "ShellBot 幫你加到 ~/.claude 和它管理的每個 Claude 帳號資料夾。"
+          }
+        },
+        "codex": {
+          "via": "mcp",
+          "note": {
+            "en": "ShellBot adds it for you to ~/.codex and to every Codex account folder it keeps.",
+            "zh": "ShellBot 幫你加到 ~/.codex 和它管理的每個 Codex 帳號資料夾。"
+          }
+        },
+        "agy": {
+          "via": "mcp",
+          "note": {
+            "en": "ShellBot adds it for you (settings file: ~/.gemini/config/mcp_config.json).",
+            "zh": "ShellBot 幫你加（設定檔：~/.gemini/config/mcp_config.json）。"
+          }
+        },
+        "grok": {
+          "via": "mcp",
+          "note": {
+            "en": "ShellBot adds it for you (settings file: ~/.grok/config.toml).",
+            "zh": "ShellBot 幫你加（設定檔：~/.grok/config.toml）。"
+          }
+        },
+        "opencode": {
+          "via": "mcp",
+          "note": {
+            "en": "Its add command asks questions: ShellBot shows the command and arguments to enter, or add it under \"mcp\" in opencode.json.",
+            "zh": "它的 add 指令是一問一答：ShellBot 列出要填的指令和參數，或自己加在 opencode.json 的 \"mcp\" 底下。"
+          }
+        },
+        "cursor": {
+          "via": "mcp",
+          "note": {
+            "en": "It has no add command: write the server into ~/.cursor/mcp.json yourself (ShellBot shows what), then run cursor-agent mcp enable shellbot-gateway.",
+            "zh": "它沒有 add 指令：自己把伺服器寫進 ~/.cursor/mcp.json（ShellBot 會列出內容），再跑 cursor-agent mcp enable shellbot-gateway。"
+          }
+        },
+        "pi": {
+          "via": "mcp",
+          "note": {
+            "en": "MCP is built into Pi from version 0.99; older versions cannot run an MCP server. Put the server in ~/.pi/agent/mcp.json.",
+            "zh": "Pi 從 0.99 版起內建 MCP，更舊的版本跑不了 MCP 伺服器。把伺服器寫進 ~/.pi/agent/mcp.json。"
+          }
+        }
+      },
+      "secrets": [
+        {
+          "id": "token",
+          "label": {
+            "en": "GitHub token",
+            "zh": "GitHub token"
+          }
+        }
+      ],
+      "mcp": {
+        "server": "shellbot-gateway",
+        "command": "{python}",
+        "args": [
+          "{gateway}"
+        ],
+        "win_command": [
+          "{python}",
+          "{gateway}"
+        ]
+      },
+      "config": [
+        {
+          "option": "github_write",
+          "key": "connect.github.readonly",
+          "invert": true
+        }
+      ],
+      "detect": {
+        "packages": [
+          "shellbot_mcp.py"
+        ]
+      },
+      "test": {
+        "via": {
+          "en": "ShellBot's server",
+          "zh": "ShellBot 的伺服器"
+        },
+        "verdicts": {
+          "starting": {
+            "text": {
+              "en": "Opening a temporary tab…",
+              "zh": "正在開臨時分頁…"
+            },
+            "next": {
+              "en": "This usually takes about a minute. Only the test tab sees your GitHub data.",
+              "zh": "通常約一分鐘。只有測試分頁看得到你的 GitHub 資料。"
+            }
+          },
+          "waiting_ready": {
+            "text": {
+              "en": "Waiting for the tab to be ready…",
+              "zh": "等分頁準備好…"
+            },
+            "next": {
+              "en": "This usually takes about a minute. Only the test tab sees your GitHub data.",
+              "zh": "通常約一分鐘。只有測試分頁看得到你的 GitHub 資料。"
+            }
+          },
+          "asking": {
+            "text": {
+              "en": "Asking it to make one small read from GitHub…",
+              "zh": "請它從 GitHub 做一次很小的讀取…"
+            },
+            "next": {
+              "en": "This usually takes about a minute. Only the test tab sees your GitHub data.",
+              "zh": "通常約一分鐘。只有測試分頁看得到你的 GitHub 資料。"
+            }
+          },
+          "reading": {
+            "text": {
+              "en": "GitHub is answering…",
+              "zh": "GitHub 回應中…"
+            },
+            "next": {
+              "en": "This usually takes about a minute. Only the test tab sees your GitHub data.",
+              "zh": "通常約一分鐘。只有測試分頁看得到你的 GitHub 資料。"
+            }
+          },
+          "needs_allow": {
+            "text": {
+              "en": "The test tab is asking for your OK",
+              "zh": "測試分頁在等你按允許"
+            },
+            "next": {
+              "en": "It wants to use a GitHub tool, and the AI asks before it does. Open the test conversation and choose Allow. The test goes on by itself afterwards.",
+              "zh": "它要用 GitHub 的工具，AI 會先問你。打開測試對話，選允許。之後測試會自己繼續。"
+            }
+          },
+          "pass": {
+            "text": {
+              "en": "It works! GitHub is connected.",
+              "zh": "通了！GitHub 已經連結。"
+            },
+            "next": {
+              "en": "The temporary test tab called a read-only GitHub tool through ShellBot. ShellBot does not read, keep or log what GitHub sent back. The test tab is not a bot, so closing it leaves nothing in any bot's memory. A tab that was already open before you connected GitHub may need to be reopened before it sees the tools.",
+              "zh": "臨時的測試分頁透過 ShellBot 叫了一個唯讀的 GitHub 工具。GitHub 回傳的內容 ShellBot 不讀、不存、不記錄。測試分頁不是 bot，關掉它不會留在任何 bot 的記憶裡。連結之前就開著的分頁，可能要重開才看得到這些工具。"
+            }
+          },
+          "said_ok": {
+            "text": {
+              "en": "This one does not count. The test tab said it worked but never called a GitHub tool, so it proves nothing.",
+              "zh": "這次不算：測試分頁說成功了，卻沒有叫過任何 GitHub 工具，這樣不能算數。"
+            },
+            "next": {
+              "en": "Run the test again. Press \"Test again\". If it happens again, open the test conversation and see what the tab did.",
+              "zh": "再測一次。按「重新測試」。再發生的話，打開測試對話看看分頁做了什麼。"
+            }
+          },
+          "timeout": {
+            "text": {
+              "en": "It took too long. After 3 minutes the test tab had not finished.",
+              "zh": "等太久了：3 分鐘了，測試分頁還沒做完。"
+            },
+            "next": {
+              "en": "Most likely it is waiting for you. Open the test conversation: the AI may be asking you to allow a tool.",
+              "zh": "最可能是它在等你。打開測試對話看看：AI 可能在問你要不要允許某個工具。"
+            }
+          },
+          "unclear": {
+            "text": {
+              "en": "No clear answer. The test tab used GitHub, but it did not end with a clear result line.",
+              "zh": "沒有明確的結果：測試分頁用了 GitHub，但最後沒有留下明確的結果那一行。"
+            },
+            "next": {
+              "en": "Open the test conversation to see how it ended, then press \"Test again\".",
+              "zh": "打開測試對話看它怎麼結束的，再按「重新測試」。"
+            }
+          },
+          "not_ready": {
+            "text": {
+              "en": "The test tab did not get ready. It never reached its prompt, so nothing was asked.",
+              "zh": "測試分頁沒有準備好：它一直沒有走到可以輸入的畫面，所以什麼都沒問。"
+            },
+            "next": {
+              "en": "Most likely the AI is not signed in. Open the test conversation: if it shows a sign-in screen, sign in there, then test again.",
+              "zh": "最可能是 AI 還沒登入。打開測試對話：如果停在登入畫面，先在那裡登入，再測一次。"
+            }
+          },
+          "closed": {
+            "text": {
+              "en": "The test tab was closed. It went away before it finished.",
+              "zh": "測試分頁被關掉了：測試分頁沒做完就不見了。"
+            },
+            "next": {
+              "en": "Run the test again. Press \"Test again\".",
+              "zh": "再測一次。按「重新測試」。"
+            }
+          },
+          "start_failed": {
+            "text": {
+              "en": "Could not open the test tab. ShellBot could not start a tab for the test.",
+              "zh": "開不了測試分頁：ShellBot 沒辦法為測試開分頁。"
+            },
+            "next": {
+              "en": "Check that your primary bot's AI opens: open a tab of it yourself from the + button. If that works, press \"Test again\".",
+              "zh": "確認你主 bot 的 AI 開得起來：自己用 + 按鈕開一個分頁。開得起來的話，再按「重新測試」。"
+            }
+          },
+          "no_tools": {
+            "text": {
+              "en": "Not yet. The test tab did not find any GitHub tool.",
+              "zh": "還沒通：測試分頁沒有找到任何 GitHub 工具。"
+            },
+            "next": {
+              "en": "Most likely ShellBot's server was not added for the AI your primary bot runs on, or for the account folder its tabs use. Go back to the step \"Add it to your AIs\" and press \"Add it for me\". A tab that was open before may need to be reopened.",
+              "zh": "最可能是 ShellBot 的伺服器沒有加進你主 bot 用的那個 AI，或沒加進它分頁用的帳號資料夾。回到「加進你的 AI」那一步，按「幫我加進去」。連結之前就開著的分頁可能要重開。"
+            }
+          },
+          "needs_auth": {
+            "text": {
+              "en": "GitHub is not reachable with the saved token. The test tab could only reach ShellBot's status tool.",
+              "zh": "用存著的 token 連不上 GitHub：測試分頁只看得到 ShellBot 的狀態工具。"
+            },
+            "next": {
+              "en": "The token is missing, expired or refused. Go back to the token step and paste a new one.",
+              "zh": "token 不見了、過期或被拒絕。回到貼 token 那一步，貼一個新的。"
+            }
+          },
+          "failed": {
+            "text": {
+              "en": "GitHub answered with an error. The test tab called a GitHub tool, but the answer ended in a failure.",
+              "zh": "GitHub 回了錯誤：測試分頁叫了 GitHub 工具，但結果是失敗。"
+            },
+            "next": {
+              "en": "Most likely the token lacks a permission or has expired. Go back to the token step and make a new one with Contents, Issues, Pull requests and Metadata set to read-only.",
+              "zh": "最可能是 token 少了權限或過期了。回到貼 token 那一步，重做一個，Contents、Issues、Pull requests、Metadata 都設成唯讀。"
+            }
+          }
+        }
+      },
+      "steps": [
+        {
+          "id": "g0",
+          "title": {
+            "en": "Make a GitHub token",
+            "zh": "建立 GitHub token"
+          },
+          "how": [
+            {
+              "en": "Press \"Open page\". GitHub opens its page for a fine-grained personal access token. Give it a name such as ShellBot, and pick an expiry.",
+              "zh": "按「打開頁面」。GitHub 會開出建立細粒度個人 token 的頁面。取個名字（例如 ShellBot），選一個到期日。"
+            },
+            {
+              "en": "Under \"Repository access\" choose only the repositories your AIs should see (\"Only select repositories\").",
+              "zh": "「Repository access」只選你要讓 AI 看的 repo（Only select repositories）。"
+            },
+            {
+              "en": "Under \"Permissions\" set Contents, Issues, Pull requests and Metadata to Read-only. Add Actions: Read-only if you want it to look at workflow runs. Nothing needs more than Read-only.",
+              "zh": "「Permissions」把 Contents、Issues、Pull requests、Metadata 設成唯讀（Read-only）。想讓它看 workflow 執行結果，再加 Actions 唯讀。沒有任何一項需要比唯讀更多。"
+            },
+            {
+              "en": "Press \"Generate token\" and copy it. GitHub shows it only once.",
+              "zh": "按「Generate token」並複製。GitHub 只會顯示這一次。"
+            }
+          ],
+          "url": "https://github.com/settings/personal-access-tokens/new",
+          "see": {
+            "en": "You have a token on your clipboard (it starts with github_pat_).",
+            "zh": "剪貼簿裡有一個 token（以 github_pat_ 開頭）。"
+          },
+          "note": {
+            "en": "A token with the organization's repositories needs the organization to allow fine-grained tokens, and some organizations ask an owner to approve it first.",
+            "zh": "要讀組織的 repo，組織得允許細粒度 token，有些組織還要管理員先核准。"
+          },
+          "stuck": [
+            {
+              "id": "org",
+              "q": {
+                "en": "My organization's repositories are not in the list",
+                "zh": "我組織的 repo 不在清單裡"
+              },
+              "a": {
+                "en": "On the token page pick the organization as the \"Resource owner\" first. If it is not offered, an owner of the organization has to allow fine-grained tokens in its settings.",
+                "zh": "在 token 頁面先把「Resource owner」選成那個組織。選不到的話，要組織管理員到組織設定允許細粒度 token。"
+              },
+              "links": [
+                {
+                  "label": {
+                    "en": "Open the token page",
+                    "zh": "打開 token 頁面"
+                  },
+                  "url": "https://github.com/settings/personal-access-tokens/new"
+                }
+              ]
+            },
+            {
+              "id": "approve",
+              "q": {
+                "en": "GitHub says the token is waiting for approval",
+                "zh": "GitHub 說 token 在等核准"
+              },
+              "a": {
+                "en": "The organization asks an owner to approve new tokens. Ask one to approve it; until then the token sees only your own repositories.",
+                "zh": "這個組織要管理員核准新 token。請管理員核准；在那之前這個 token 只看得到你自己的 repo。"
+              }
+            }
+          ]
+        },
+        {
+          "id": "g1",
+          "title": {
+            "en": "Paste the token",
+            "zh": "貼上 token"
+          },
+          "how": [
+            {
+              "en": "Paste the token into the box and press \"Save token\". ShellBot keeps it in this computer's key store (Keychain on a Mac, Credential Manager on Windows).",
+              "zh": "把 token 貼進欄位，按「儲存 token」。ShellBot 會把它存在這台電腦的系統鑰匙圈（Mac 的 Keychain、Windows 的 Credential Manager）。"
+            },
+            {
+              "en": "It is not written into any AI's settings, into ShellBot's own settings, or into a log. The AIs start ShellBot's server, and the server reads the token from the key store itself.",
+              "zh": "它不會寫進任何 AI 的設定、ShellBot 自己的設定或記錄。AI 啟動的是 ShellBot 的伺服器，由伺服器自己去鑰匙圈讀 token。"
+            }
+          ],
+          "see": {
+            "en": "The result below says the token is saved.",
+            "zh": "下面的結果說 token 已儲存。"
+          },
+          "actions": [
+            {
+              "id": "save",
+              "label": {
+                "en": "Save token",
+                "zh": "儲存 token"
+              },
+              "builtin": "secret_set",
+              "after": null,
+              "input": {
+                "label": {
+                  "en": "GitHub token",
+                  "zh": "GitHub token"
+                },
+                "placeholder": {
+                  "en": "github_pat_…",
+                  "zh": "github_pat_…"
+                }
+              },
+              "results": {
+                "saved": {
+                  "tone": "good",
+                  "text": {
+                    "en": "The token is saved in the key store.",
+                    "zh": "token 已存進鑰匙圈。"
+                  }
+                },
+                "empty": {
+                  "tone": "warn",
+                  "text": {
+                    "en": "Nothing was pasted.",
+                    "zh": "沒有貼任何內容。"
+                  }
+                },
+                "unsupported": {
+                  "tone": "bad",
+                  "text": {
+                    "en": "This computer has no key store ShellBot can use, so it cannot keep the token.",
+                    "zh": "這台電腦沒有 ShellBot 能用的鑰匙圈，所以存不了 token。"
+                  }
+                },
+                "failed": {
+                  "tone": "bad",
+                  "text": {
+                    "en": "The token could not be saved.",
+                    "zh": "token 存不進去。"
+                  }
+                }
+              }
+            }
+          ],
+          "stuck": [
+            {
+              "id": "unsupported",
+              "q": {
+                "en": "It says there is no key store",
+                "zh": "它說沒有鑰匙圈"
+              },
+              "a": {
+                "en": "ShellBot never keeps a token in a file. On Linux there is no key store it can use yet, so GitHub through ShellBot works on a Mac or on Windows only.",
+                "zh": "ShellBot 不會把 token 存成檔案。Linux 目前沒有它能用的鑰匙圈，所以經由 ShellBot 連 GitHub 只支援 Mac 和 Windows。"
+              }
+            }
+          ]
+        },
+        {
+          "id": "g2",
+          "title": {
+            "en": "Add it to your AIs",
+            "zh": "加進你的 AI"
+          },
+          "how": [
+            {
+              "en": "ShellBot adds one server, \"shellbot-gateway\", to every AI program on this computer that you leave ticked below, and to each of their account folders. Every AI then has the same GitHub tools, named github_….",
+              "zh": "ShellBot 會把一個伺服器「shellbot-gateway」加進這台電腦上你留著勾選的每個 AI，連同它們的每個帳號資料夾。每個 AI 就有同一組 GitHub 工具，名稱是 github_…。"
+            },
+            {
+              "en": "GitHub is read-only unless you tick \"Also allow changes\". Ticking it lets the AIs create and change issues, comments and pull requests. It takes effect the next time an AI starts.",
+              "zh": "GitHub 預設唯讀，除非你勾「也允許修改」。勾了，AI 就能建立、修改 issue、留言和 pull request。要等 AI 下次啟動才生效。"
+            }
+          ],
+          "see": {
+            "en": "Every AI you left ticked shows as connected.",
+            "zh": "你留著勾選的每個 AI 都顯示已連結。"
+          },
+          "options": [
+            {
+              "id": "cli_claude",
+              "label": {
+                "en": "Add to Claude Code",
+                "zh": "加進 Claude Code"
+              },
+              "default": true
+            },
+            {
+              "id": "cli_codex",
+              "label": {
+                "en": "Add to Codex",
+                "zh": "加進 Codex"
+              },
+              "default": true
+            },
+            {
+              "id": "cli_agy",
+              "label": {
+                "en": "Add to Antigravity",
+                "zh": "加進 Antigravity"
+              },
+              "default": true
+            },
+            {
+              "id": "cli_grok",
+              "label": {
+                "en": "Add to Grok Build",
+                "zh": "加進 Grok Build"
+              },
+              "default": true
+            },
+            {
+              "id": "cli_opencode",
+              "label": {
+                "en": "Add to OpenCode",
+                "zh": "加進 OpenCode"
+              },
+              "default": true
+            },
+            {
+              "id": "cli_cursor",
+              "label": {
+                "en": "Add to Cursor Agent",
+                "zh": "加進 Cursor Agent"
+              },
+              "default": true
+            },
+            {
+              "id": "cli_pi",
+              "label": {
+                "en": "Add to Pi",
+                "zh": "加進 Pi"
+              },
+              "default": true
+            },
+            {
+              "id": "github_write",
+              "label": {
+                "en": "Also allow changes (create and edit issues, comments and pull requests)",
+                "zh": "也允許修改（建立和編輯 issue、留言、pull request）"
+              },
+              "default": false
+            }
+          ],
+          "actions": [
+            {
+              "id": "add",
+              "label": {
+                "en": "Add it for me",
+                "zh": "幫我加進去"
+              },
+              "builtin": "cli_add",
+              "after": null,
+              "results": {
+                "added": {
+                  "tone": "good",
+                  "text": {
+                    "en": "Added to your AIs.",
+                    "zh": "已加進你的 AI。"
+                  }
+                },
+                "replaced": {
+                  "tone": "good",
+                  "text": {
+                    "en": "Updated in your AIs.",
+                    "zh": "已在你的 AI 裡更新。"
+                  }
+                },
+                "manual": {
+                  "tone": "warn",
+                  "text": {
+                    "en": "These AIs need it added by hand: the box below shows what to enter.",
+                    "zh": "這些 AI 要自己加：下面的方框列出要填的內容。"
+                  }
+                },
+                "no_cli": {
+                  "tone": "warn",
+                  "text": {
+                    "en": "No AI program was found to add it to.",
+                    "zh": "找不到可以加進去的 AI 程式。"
+                  }
+                },
+                "failed": {
+                  "tone": "bad",
+                  "text": {
+                    "en": "At least one AI refused it. Press the button again, or open the AI yourself to see why.",
+                    "zh": "至少有一個 AI 沒加成功。再按一次，或自己開那個 AI 看原因。"
+                  }
+                }
+              }
+            }
+          ],
+          "stuck": [
+            {
+              "id": "failed",
+              "q": {
+                "en": "One of my AIs says it failed",
+                "zh": "有一個 AI 說失敗"
+              },
+              "a": {
+                "en": "Open that AI once yourself so it creates its settings, then press \"Add it for me\" again. It is safe to repeat: ShellBot removes its own entry and adds it again.",
+                "zh": "先自己開一次那個 AI，讓它建好設定，再按「幫我加進去」。重複按沒關係：ShellBot 會先移除自己的那一筆再重加。"
+              }
+            }
+          ]
+        },
+        {
+          "id": "g3",
+          "kind": "test",
+          "title": {
+            "en": "Test that it works",
+            "zh": "測試接通"
+          },
+          "intro": {
+            "en": "ShellBot opens a temporary tab of your primary bot's AI and asks it to make one small read-only call to GitHub, and nothing else. ShellBot does not read, keep or log what comes back.",
+            "zh": "ShellBot 會開一個臨時分頁（用你主 bot 的 AI），請它對 GitHub 做一次很小的唯讀呼叫，不做別的事。回來的內容 ShellBot 不讀、不存、不記錄。"
+          }
+        }
+      ]
+    }
+  ],
+  "faq": [
+    {
+      "id": "what-it-does",
+      "q": {
+        "en": "What can my AIs do with GitHub?",
+        "zh": "AI 能用 GitHub 做什麼？"
+      },
+      "a": {
+        "en": "By default only read: search and open repositories, files, commits, issues, pull requests and workflow runs, in the repositories your token can see. Writing is off until you tick \"Also allow changes\".",
+        "zh": "預設只能讀：在 token 看得到的 repo 裡搜尋、打開 repo、檔案、commit、issue、pull request 和 workflow 執行結果。寫入要等你勾「也允許修改」才開。"
+      }
+    },
+    {
+      "id": "where-token",
+      "q": {
+        "en": "Where is my token kept?",
+        "zh": "我的 token 存在哪？"
+      },
+      "a": {
+        "en": "In the system key store only. It is not in an AI's settings, ShellBot's settings, a log or a message. To change it, paste a new one; to remove it, disconnect GitHub here.",
+        "zh": "只存在系統鑰匙圈。不在任何 AI 的設定、ShellBot 的設定、記錄或訊息裡。要換就貼新的；要移除就在這裡斷開 GitHub。"
+      }
+    },
+    {
+      "id": "sfctl",
+      "q": {
+        "en": "Can a script use it too?",
+        "zh": "腳本也能用嗎？"
+      },
+      "a": {
+        "en": "Yes: `sfctl call github <tool> --args '{…}'` prints the answer as JSON, and `sfctl call --list` lists the tools.",
+        "zh": "可以：`sfctl call github <工具> --args '{…}'` 會用 JSON 印出結果，`sfctl call --list` 列出有哪些工具。"
+      }
+    }
+  ],
+  "problems": {
+    "revoked": {
+      "text": {
+        "en": "GitHub does not accept the saved token",
+        "zh": "GitHub 不接受存著的 token"
+      },
+      "next": {
+        "en": "Make a new token and paste it again.",
+        "zh": "重新建一個 token 貼上。"
+      }
+    }
+  }
+}

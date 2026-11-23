@@ -188,6 +188,12 @@ route = { "id", "kind": "claude_connector" | "local_mcp" | "api_key" | "oauth",
           "scopes": ["read"],                  // the least this route asks for
           "target": "primary",                 // optional: cli_add puts the server into the CLI the primary bot runs on
                                                // (clis.preferred_cli; Claude when there is none), not Claude by default
+          "targets": "all",                    // optional: cli_add / remove / check go to EVERY installed AI program the route lists
+                                               // (step options `cli_<id>`, default on, untick one to skip it), and into every account
+                                               // folder of Claude (~/.claude + account-profiles/claude/*) and Codex (~/.codex +
+                                               // account-profiles/codex/*); one place for the rest. Pi only from 0.99. No `targets`: as before.
+          "config": [ {"option": "<step option id>", "key": "connect.<service>.<name>", "invert": false} ],
+                                               // optional: the setting follows that tick box (written by cli_add, removed on disconnect)
           "clis": { "<cli>": {"via": "connector" | "mcp" | "none", "note": T} },   // cli: claude codex agy grok opencode cursor pi
           "mcp":  { "server": "shellbot-<name>", "command": "npx", "args": ["-y", "pkg"], "win_command": ["cmd", "/c", "npx", "-y", "pkg"],
                     "env": {"K": "plain value"}, "env_from_secret": {"ENV_NAME": "<secret id>"} },
@@ -200,6 +206,7 @@ step = { "id", "title": T, "how": [T], "url": "https://…", "see": T, "note": T
          "check":   {"id", "on": "enter" | "done", "gate": bool, "pass": ["ok"], "states": {"<code>": {"tone", "text": T, "hint": T}}},
          "actions": [ {"id", "label": T, "builtin": "cli_add" | "cli_remove" | "cli_check" | "secret_set" | null,
                        "after": "check" | null,
+                       "input": {"label": T, "placeholder": T},   // secret_set only: a password field beside the button; its value is sent once, the field emptied at once
                        "results": {"<code>": {"tone", "text": T, "poll": "<action id of this step>"}}} ],   // poll: see below
          "options": [ {"id", "label": T, "default": bool} ],
          "stuck":   [ {"id", "q": T, "a": T, "links": [{"label": T, "url" | "step"}]} ],
@@ -309,6 +316,14 @@ which), and the last one removes it.
 
 ### The services that ship
 
+`github` is the one that runs ShellBot's own MCP gateway (`shellbot_mcp.py`, entry `shellbot-gateway`, command = this install's
+venv python and the script, absolute, no environment): the person pastes a fine-grained token (`secret_set` with an `input`),
+it goes to the key store, every AI program gets the same one server (`"targets": "all"`), and the gateway reads the token from
+the key store itself and talks to GitHub's remote MCP server (`github_…` tools). Read-only unless the person ticks "also allow
+changes" (`config`: `connect.github.readonly` in config.json; `connect.github.toolsets` is hand-editable). Mac and Windows only:
+Linux has no key store ShellBot uses, and a token is never kept in a file. `sfctl call github <tool> --args '{…}'` calls it
+from a script in its own process. More services can be mounted on the gateway as `Upstream` classes.
+
 | id | Name | Way | Other AI programs | Checked |
 |---|---|---|---|---|
 | `gmail` | Gmail | a local MCP server, **recommended** (`@dguido/google-workspace-mcp@3.4.4`, pinned): added to the CLI the primary bot runs on (Claude Code or Codex…), tested in a tab of that CLI; or the claude.ai connector (Claude tabs only) | the local server for every program (see `gmail.json`) | descriptions, adapter and engine with stand-ins (a Claude primary and a Codex primary); `codex mcp add/get/remove` measured in a temporary `CODEX_HOME` (0.142.1 and 0.147.0) |
@@ -416,6 +431,11 @@ it names. A route that needs a key: `"kind": "api_key"`, `secrets`, `env_from_se
 - **The phone**: `/link/bots` has a new top-level `connections` (the short status of every service); old fields untouched.
 
 ## Not verified (said, not hidden)
+
+- GitHub: no real token and no real GitHub were used. The gateway was run against a made-up Streamable-HTTP server (JSON and
+  event-stream answers) and started by a real `claude` and a real `codex` (temporary homes) for `mcp list`; whether
+  `api.githubcopilot.com` accepts the headers as written (`X-MCP-Readonly`, `X-MCP-Toolsets`) with a fine-grained token, which
+  tools the default toolsets give, and the Keychain read from the AI's child process are not tried.
 
 - What already works: the lines of `claude mcp list` (Claude Code 2.1.326) and the columns of `codex mcp list` (Codex
   0.142.1) were looked at once, shape only, on one Mac (2026-11-17); the tests use made-up lines in that shape. Claude's

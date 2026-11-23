@@ -487,8 +487,13 @@
     if (!(step.actions || []).length && !(step.options || []).length) return '';
     const opts = (step.options || []).map(o => `<button type="button" class="cn-opt${S.opts[o.id] ? ' on' : ''}" role="checkbox" aria-checked="${!!S.opts[o.id]}" ` +
       `data-act="opt" data-id="${esc(o.id)}"><i class="cn-box"></i><span>${esc(pick(o.label))}</span></button>`).join('');
+    // An action with an `input` (a key or token to paste) gets a password field beside its button. The value lives only in
+    // that field: it is read when the button is pressed, sent once, and the field is cleared; nothing keeps it.
+    const field = (step.actions || []).filter(a => a.input).map(a => `<label class="cn-field"><span>${esc(pick(a.input.label))}</span>` +
+      `<input type="password" autocomplete="off" spellcheck="false" data-secret="${esc(a.id)}" placeholder="${esc(a.input.placeholder ? pick(a.input.placeholder) : '')}"` +
+      `${S.busy ? ' disabled' : ''}></label>`).join('');
     const acts = (step.actions || []).map(a => btn('do', S.busy === 'act:' + a.id ? t('Working…', '處理中…') : pick(a.label), 'primary', ` data-id="${esc(a.id)}"`)).join('');
-    return `<div class="cn-acts">${opts}<div class="cn-acts-row">${acts}</div></div>`;
+    return `<div class="cn-acts">${opts}${field}<div class="cn-acts-row">${acts}</div></div>`;
   }
   function stuckPanel(step) {
     const items = (step.stuck || []).map(p => {
@@ -806,8 +811,16 @@
     const a = ((s && s.actions) || []).find(x => x.id === id);
     if (!a) return;
     const me = S;
-    const res = await step('act', { action: id, options: S.opts }, 'act:' + id);
+    const args = { action: id, options: S.opts };
+    if (a.input) {                                        // the pasted value goes out once, and the field is emptied at once
+      const f = card && card.querySelector(`input[data-secret="${id}"]`);
+      args.value = f ? f.value.trim() : '';
+      if (f) f.value = '';
+      if (!args.value) { S.err = { text: t('Paste it in the box first.', '請先把內容貼進欄位。'), next: '' }; return render(); }
+    }
+    const res = await step('act', args, 'act:' + id);
     if (S !== me) return;
+    if (res && res.success !== false && vstep() && vstep().id !== s.id) { S.checked[s.id] = true; return enter(); }     // the action finished its step (a built-in): the next one opens with its own tick boxes
     if (res && res.success !== false && a.after === 'check' && s.check) { await runCheck(); return follow(); }
     render();
     follow();
@@ -1000,6 +1013,17 @@
     doc.body.appendChild(el);
     card = el.querySelector('#cn-card');
     el.addEventListener('click', onClick);
+    el.addEventListener('keydown', e => {                // Enter in a paste box presses its button
+      const f = e.target && e.target.closest && e.target.closest('input[data-secret]');
+      if (f && e.key === 'Enter' && S && S.open && !S.busy) { e.preventDefault(); runAction(f.dataset.secret); }
+    });
+    el.addEventListener('input', e => {                  // typing clears "paste it first" (the field itself is left alone)
+      if (e.target && e.target.matches && e.target.matches('input[data-secret]') && S && S.err) {
+        S.err = null;
+        const m = card.querySelector('.cn-msg.bad[role="alert"]');
+        if (m) m.remove();
+      }
+    });
     doc.addEventListener('keydown', onKey, true);
     root.addEventListener('focus', cameBack);
     doc.addEventListener('visibilitychange', () => { if (!doc.hidden) cameBack(); });

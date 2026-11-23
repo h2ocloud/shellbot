@@ -72,9 +72,33 @@ class ConnectApiMixin:
                 eng = getattr(self, "_connect_engine", None)
                 if eng is None:
                     eng = eng_mod.Engine(clis=clis_mod.Clis(env=self._connect_cli_env, win=sys.platform == "win32"),
-                                         ctx_factory=self._connect_ctx)
+                                         ctx_factory=self._connect_ctx, config_set=self._connect_config_set)
                     self._connect_engine = eng
         return eng
+
+    def _connect_config_set(self, path: str, value) -> None:
+        """A setting a route's `config` names ("connect.<service>.<name>"), in config.json under the config lock;
+        `None` takes it out (back to its default). Only `connect.<service>.<name>` is ever written here."""
+        parts = str(path).split(".")
+        if len(parts) != 3 or parts[0] != "connect":
+            raise ValueError("not a connect setting")
+
+        def mutate(cfg):
+            block = cfg.setdefault("connect", {})
+            if not isinstance(block, dict):
+                block = cfg["connect"] = {}
+            sub = block.setdefault(parts[1], {})
+            if not isinstance(sub, dict):
+                sub = block[parts[1]] = {}
+            if value is None:
+                sub.pop(parts[2], None)
+                if not sub:
+                    block.pop(parts[1], None)
+                if not block:
+                    cfg.pop("connect", None)
+            else:
+                sub[parts[2]] = value
+        main.update_config(mutate)
 
     def _connect_cli_env(self, cli: str = "claude") -> dict:
         """The environment an AI program is run with: the app's own, with the account folder a new tab of

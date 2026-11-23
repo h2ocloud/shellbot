@@ -170,8 +170,10 @@ def _safe_result(res) -> dict:
 
 
 class Engine:
-    def __init__(self, registry=None, path=None, clis=None, backend=None, ctx_factory=None, clock=time.time, platform=None):
+    def __init__(self, registry=None, path=None, clis=None, backend=None, ctx_factory=None, clock=time.time, platform=None,
+                 config_set=None):
         self.registry = registry or reg_mod.default()
+        self.config_set = config_set                 # fn("a.b.c", value | None) -> None: a ShellBot setting a route's `config` names (None removes it)
         self.platform = platform                     # mac | windows | linux; None: this computer (a test names one)
         self.store = Store(path)
         self.clis = clis or clis_mod.Clis()
@@ -567,6 +569,12 @@ class Engine:
         return self._reply(service, detail=extra)
 
     # built-in actions: what the core can do for any service ------------------
+    def _all(self, route) -> bool:
+        """A route marked `"targets": "all"` goes to every AI program that is installed (the person may untick some
+        in the step's options), and into every account folder of each (clis.Clis.homes). Any other route: one CLI,
+        one account folder, as before."""
+        return (route or {}).get("targets") == "all"
+
     def _targets(self, route, args, service=None, op="add") -> list:
         """Which CLIs an MCP entry goes to (add) or is looked for in (remove, check, forget). Unless asked for
         more: one CLI, never all of them at once. A route marked `"target": "primary"` in its description
@@ -574,6 +582,15 @@ class Engine:
         recorded; removing also there and in Claude, so an entry made before the primary changed is not left behind."""
         want = args.get("clis")
         pool = [c for c in clis_mod.CLI_IDS if (route.get("clis", {}).get(c) or {}).get("via") == "mcp"]
+        if not isinstance(want, list) and self._all(route):
+            recorded = list((self.store.get(service) or {}).get("clis") or {}) if service else []
+            if op == "check":
+                return [c for c in (recorded or pool) if c in pool]
+            if op in ("remove", "forget"):
+                return list(dict.fromkeys(pool + [c for c in recorded if c in pool]))
+            opts = (self.store.get(service) or {}).get("options") or {} if service else {}
+            want = [c for c in pool if self.clis.installed(c) and opts.get(f"cli_{c}", True) is not False
+                    and not (c == "pi" and (self.clis.version("pi") or (9, 9)) < (0, 99))]    # Pi has MCP from 0.99
         if not isinstance(want, list):
             first = "claude" if "claude" in pool else (pool[0] if pool else "")
             if route.get("target") == "primary" and service:
@@ -605,7 +622,8 @@ class Engine:
             if not v:
                 return {"state": "secret_missing"}
             extra[env_name] = v
-        results = {c: self.clis.add(c, mcp, extra) for c in self._targets(route, args, service, "add")}
+        self._apply_config(route, service)
+        results = {c: self.clis.add(c, mcp, extra, all_homes=self._all(route)) for c in self._targets(route, args, service, "add")}
         self._record_clis(service, results)
         states = [r["state"] for r in results.values()]
         ok = [s for s in states if s in ("added", "replaced")]
@@ -620,8 +638,22 @@ class Engine:
         return {"state": code, "clis": {c: r["state"] for c, r in results.items()},
                 "shown": {c: r["shown"] for c, r in results.items() if r.get("shown")}}
 
+    def _apply_config(self, route, service, reset=False) -> None:
+        """A route's `config` ties a step option to a ShellBot setting ({"option", "key": "connect.<service>.<name>",
+        "invert"}): the setting follows the option as the person last ticked it (`reset`: removed, back to its default).
+        It is how a service's gateway learns what it may do (read-only unless writing was turned on)."""
+        if not self.config_set:
+            return
+        opts = (self.store.get(service) or {}).get("options") or {}
+        for c in route.get("config") or []:
+            try:
+                value = None if reset else (bool(opts.get(c["option"], False)) != bool(c.get("invert")))
+                self.config_set(c["key"], value)
+            except Exception:
+                _dlog("connect", f"config {c.get('key')} not saved")
+
     def _b_cli_remove(self, service, route, args) -> dict:
-        results = {c: self.clis.remove(c, route["mcp"]["server"]) for c in self._targets(route, args, service, "remove")}
+        results = {c: self.clis.remove(c, route["mcp"]["server"], all_homes=self._all(route)) for c in self._targets(route, args, service, "remove")}
         def fn(x):
             for cli, r in results.items():
                 if r["state"] in ("removed", "absent"):
@@ -630,7 +662,7 @@ class Engine:
         return {"state": "removed", "clis": {c: r["state"] for c, r in results.items()}}
 
     def _b_cli_check(self, service, route, args) -> dict:
-        results = {c: self.clis.check(c, route["mcp"]["server"]) for c in self._targets(route, args, service, "check")}
+        results = {c: self.clis.check(c, route["mcp"]["server"], all_homes=self._all(route)) for c in self._targets(route, args, service, "check")}
         states = [r["state"] for r in results.values() if r["state"] in ("present", "absent", "unknown")]
         code = "absent" if "absent" in states else ("present" if states and all(s == "present" for s in states) else "unknown")
         return {"state": code, "clis": {c: r["state"] for c, r in results.items()}}
@@ -797,7 +829,7 @@ class Engine:
         saved = rec.get("clis") or {}
         for cli in clis_mod.CLI_IDS:
             if saved.get(cli) == "connected" and route.get("mcp") and (route.get("clis", {}).get(cli) or {}).get("via") == "mcp":
-                if self.clis.check(cli, route["mcp"]["server"])["state"] == "absent":
+                if self.clis.check(cli, route["mcp"]["server"], all_homes=self._all(route))["state"] == "absent":
                     return "cli_entry_missing"
         for sid in (rec.get("secrets") or {}):
             try:
@@ -843,7 +875,9 @@ class Engine:
             removed["kept_for"] = kept                       # another service still uses this entry
         elif route and route.get("mcp"):
             for cli in self._targets(route, {}, service, "forget"):     # only ours (shellbot-…), wherever it was put
-                removed["clis"][cli] = self.clis.remove(cli, route["mcp"]["server"])["state"]
+                removed["clis"][cli] = self.clis.remove(cli, route["mcp"]["server"], all_homes=self._all(route))["state"]
+        if route:
+            self._apply_config(route, service, reset=True)
         names = sorted(set(rec.get("secrets") or {}) | {s["id"] for s in (route or {}).get("secrets", [])})
         for name in names:
             try:

@@ -136,6 +136,9 @@
 
 /* a button that does one thing for you, and the tick boxes it takes */
 .cn-acts { margin: 0 0 4px; display: flex; flex-direction: column; gap: 8px; }
+.cn-field { display: flex; flex-direction: column; gap: 4px; color: var(--c-soft); font-size: 12px; }
+.cn-field input { padding: 7px 9px; border: 1px solid var(--c-line2); border-radius: 7px; background: var(--c-head); color: var(--c-text); font: 13px ui-monospace, Menlo, Consolas, monospace; }
+.cn-field input:focus-visible { outline: 2px solid var(--c-blue); outline-offset: 1px; }
 .cn-acts-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .cn-opt { display: flex; align-items: center; gap: 8px; width: fit-content; padding: 1px 0; border: 0; background: none; color: var(--c-soft); cursor: pointer; text-align: left; }
 .cn-box { flex: none; position: relative; width: 14px; height: 14px; border: 1.5px solid var(--c-dim); border-radius: 4px; }
