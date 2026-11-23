@@ -27,9 +27,18 @@ TEST_CLIS = ("claude", "codex")
 FAILED_STEP = {"no_tools": "g2", "needs_auth": "g1", "failed": "g1"}      # the step a verdict sends the person back to
 
 
+def check_token(ctx, args: dict) -> dict:
+    """Is a token in the key store (asked, never opened): ok | missing | unsupported. Gates "I did it" on the paste step."""
+    try:
+        return {"state": "ok" if ctx.secrets.has("token") else "missing"}
+    except secrets.Unsupported:
+        return {"state": "unsupported"}
+
+
 class GithubAdapter(TabTestAdapter):
     def __init__(self):
         super().__init__(ID, PREFIX, MARK, ("GitHub", "GitHub"), "token", FAILED_STEP, auth_tools=STATUS, prefixes=PREFIXES, clis=TEST_CLIS)
+        self.checks = {"token": check_token}
 
     def pick_cli(self, ctx) -> str:
         """The CLI the primary bot runs on, when its transcript can be read; else Claude."""

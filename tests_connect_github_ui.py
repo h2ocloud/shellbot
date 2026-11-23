@@ -57,7 +57,7 @@ from _connectors_homes_fake import HomeRunner  # noqa: E402
 
 
 class Api(api_connect.ConnectApiMixin):
-    def __init__(self):
+    def __init__(self, installed=None):
         self.sessions = {}
         self.home = pathlib.Path(tempfile.mkdtemp(prefix="github-ui-", dir=os.environ.get("SHELLFRAME_TEST_ROOT") or None))
         self.runner = HomeRunner()
@@ -65,7 +65,7 @@ class Api(api_connect.ConnectApiMixin):
         self.profiles = {"claude": [str(self.home / "p" / "claude" / "work"), str(self.home / "p" / "claude" / "home")], "codex": [str(self.home / "p" / "codex" / "main")]}
         self._connect_engine = eng_mod.Engine(
             registry=registry.Registry(), path=str(self.home / "connectors.json"), backend=self.backend, platform="mac", ctx_factory=self.ctx,
-            clis=clis.Clis(runner=self.runner, finder=fake.finder(), profiles=lambda cli: self.profiles.get(cli, []),
+            clis=clis.Clis(runner=self.runner, finder=fake.finder(installed) if installed else fake.finder(), profiles=lambda cli: self.profiles.get(cli, []),
                            paths={"python": "/install/.venv/bin/python", "gateway": "/install/shellbot_mcp.py"}),
             config_set=lambda k, v: CONFIG.append((k, v)))
 
@@ -168,10 +168,34 @@ def run(browser):
     page.close()
 
 
+def run_partial(browser):
+    print("3. only some AIs installed: the others are not offered, and the manual one shows what to enter")
+    api = Api(installed=("claude", "opencode"))
+    page, errors = open_page(browser, api)
+    page.locator('#settings-panel-connect .cg-row[data-service="github"] button').click()
+    page.wait_for_selector("#cn-card .cn-how", timeout=5000)
+    page.click('#cn-card [data-act="did"]')
+    page.wait_for_function("document.querySelector('#cn-card .cn-title').textContent.includes('貼上')", timeout=5000)
+    page.click('#cn-card [data-act="do"]')                       # empty: refused on the page
+    page.locator('#cn-card input[data-secret="save"]').fill(TOKEN)
+    page.click('#cn-card [data-act="do"]')
+    page.wait_for_function("document.querySelector('#cn-card .cn-title').textContent.includes('加進你的 AI')", timeout=5000)
+    labels = page.locator("#cn-card .cn-opt").all_inner_texts()
+    check("tick boxes only for the installed AIs, plus 'also allow changes'", [x for x in labels if "加進" in x] == ["加進 Claude Code", "加進 OpenCode"] and any("也允許修改" in x for x in labels), labels)
+    man = page.locator("#cn-card .cn-manual")
+    check("OpenCode (set up by hand) is listed with the command to enter; nothing for the AIs that are not installed",
+          man.count() == 1 and "OpenCode" in man.inner_text() and "/install/.venv/bin/python" in man.inner_text() and "Cursor" not in man.inner_text() and "Pi" not in man.inner_text().replace("Python", ""), man.inner_text() if man.count() else "")
+    page.locator("#cn-card .cn-opt").nth(1).click()                # untick OpenCode
+    check("unticking it takes its entry out of the box", page.locator("#cn-card .cn-manual").count() == 0)
+    check("no token on the page, no page errors", TOKEN not in page.content() and not errors, errors)
+    page.close()
+
+
 with sync_playwright() as p:
     browser = p.webkit.launch(headless=True)
     try:
         run(browser)
+        run_partial(browser)
     finally:
         browser.close()
 

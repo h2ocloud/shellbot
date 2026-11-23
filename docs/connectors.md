@@ -322,7 +322,10 @@ it goes to the key store, every AI program gets the same one server (`"targets":
 the key store itself and talks to GitHub's remote MCP server (`github_…` tools). Read-only unless the person ticks "also allow
 changes" (`config`: `connect.github.readonly` in config.json; `connect.github.toolsets` is hand-editable). Mac and Windows only:
 Linux has no key store ShellBot uses, and a token is never kept in a file. `sfctl call github <tool> --args '{…}'` calls it
-from a script in its own process. More services can be mounted on the gateway as `Upstream` classes.
+from a script in its own process. More services can be mounted on the gateway as `Upstream` classes. Start-up is kept short
+(session 3 s, listing 5 s) so a stuck GitHub shows as `shellbot_status` inside an AI program's own start-up limit; every tool
+result has the token's exact value taken out before it leaves the gateway. The add step only offers the AIs that are installed,
+and lists what to enter for the manual ones (OpenCode, Cursor Agent, Pi).
 
 | id | Name | Way | Other AI programs | Checked |
 |---|---|---|---|---|
@@ -435,7 +438,9 @@ it names. A route that needs a key: `"kind": "api_key"`, `secrets`, `env_from_se
 - GitHub: no real token and no real GitHub were used. The gateway was run against a made-up Streamable-HTTP server (JSON and
   event-stream answers) and started by a real `claude` and a real `codex` (temporary homes) for `mcp list`; whether
   `api.githubcopilot.com` accepts the headers as written (`X-MCP-Readonly`, `X-MCP-Toolsets`) with a fine-grained token, which
-  tools the default toolsets give, and the Keychain read from the AI's child process are not tried.
+  tools the default toolsets give, and the Keychain read from the AI's child process are not tried. `codex mcp list` shows the
+  entry as enabled but does not start the server, so Codex's own handshake with the gateway is not proven (Claude Code's is:
+  `✔ Connected`). `tests_shellbot_mcp_handshake.py` starts real programs and runs only with `SHELLBOT_REAL_CLI_TESTS=1`.
 
 - What already works: the lines of `claude mcp list` (Claude Code 2.1.326) and the columns of `codex mcp list` (Codex
   0.142.1) were looked at once, shape only, on one Mac (2026-11-17); the tests use made-up lines in that shape. Claude's

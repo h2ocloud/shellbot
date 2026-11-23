@@ -9,7 +9,8 @@ Nothing real is touched: HOME, CLAUDE_CONFIG_DIR and CODEX_HOME are temp folders
 store is never reached (SHELLFRAME_TESTS makes it refuse), the upstream is on localhost. Skipped when a program is not
 installed. The programs' output is printed (their own words) so the run shows what they said.
 
-Run: .venv/bin/python tests_shellbot_mcp_handshake.py
+Opt-in (it starts real programs): SHELLBOT_REAL_CLI_TESTS=1 .venv/bin/python tests_shellbot_mcp_handshake.py; without the
+variable the suite skips it.
 """
 import json
 import os
@@ -22,6 +23,9 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 os.environ.setdefault("SHELLFRAME_TESTS", "1")
+if os.environ.get("SHELLBOT_REAL_CLI_TESTS") != "1":
+    print("SKIP  tests_shellbot_mcp_handshake.py（要跑真的 claude / codex：SHELLBOT_REAL_CLI_TESTS=1）")
+    sys.exit(0)
 import _mcp_fake_upstream as fake  # noqa: E402
 from connectors import clis as clis_mod  # noqa: E402
 from connectors.clis import Result  # noqa: E402
@@ -67,8 +71,15 @@ def runner_for(home, log):
 
 
 up = fake.Upstream(honor_readonly=True)
-MCP = {"server": "shellbot-gateway", "command": "{python}", "args": ["{gateway}"]}
+# SHELLFRAME_TESTS in the entry's own environment: an AI program may not pass its own environment on to the server it starts, and the
+# gateway must then never reach the real key store (this makes its key store refuse). The real description has no environment.
+MCP = {"server": "shellbot-gateway", "command": "{python}", "args": ["{gateway}"], "env": {"SHELLFRAME_TESTS": "1"}}
 real_py = os.path.abspath(sys.executable)
+
+# the real script, started as an AI program would start it (this environment only): no key store, so only the status tool
+proc = subprocess.run([real_py, str(HERE / "shellbot_mcp.py")], input='{"jsonrpc":"2.0","id":1,"method":"tools/list"}\n', capture_output=True, text=True, timeout=60,
+                      env={"PATH": os.environ.get("PATH", ""), "HOME": str(TMP), "SHELLFRAME_TESTS": "1", "SHELLFRAME_CONFIG_DIR": str(TMP / "cfg")})
+check("the real shellbot_mcp.py with no key store answers tools/list with shellbot_status alone", '"shellbot_status"' in proc.stdout and "github_" not in proc.stdout, proc.stdout[:300] + proc.stderr[:300])
 
 # ── Claude Code ────────────────────────────────────────────────────────────
 claude = find("claude")
@@ -85,10 +96,11 @@ else:
                        paths={"python": real_py, "gateway": str(HERE / "shellbot_mcp.py")})
     r = cl.add("claude", MCP, all_homes=True)
     check("Clis.add(all_homes) with the real claude: added in the default folder and both account folders", r["state"] == "added" and r["homes"] == 3, str(r))
-    check("the entry is in each account folder's own settings file and holds no token or environment",
-          all("shellbot-gateway" in (Path(p) / ".claude.json").read_text() for p in profiles) and "shellbot-gateway" in (home / ".claude.json").read_text()
-          and "github_pat" not in (Path(profiles[0]) / ".claude.json").read_text() and '"env": {}' in (Path(profiles[0]) / ".claude.json").read_text().replace('"env":{}', '"env": {}'),
-          (Path(profiles[0]) / ".claude.json").read_text()[:400])
+    def entry(path):
+        return json.loads(Path(path).read_text())["mcpServers"]["shellbot-gateway"]
+    ents = [entry(home / ".claude.json")] + [entry(Path(p) / ".claude.json") for p in profiles]
+    check("the entry is in each account folder's own settings file: the absolute command, and no environment but the test's own",
+          all(e["command"] == real_py and e["args"] == [str(HERE / "shellbot_mcp.py")] and e.get("env") == {"SHELLFRAME_TESTS": "1"} for e in ents), str(ents[0]))
     for label, env in (("default folder", {}), ("account folder a", {"CLAUDE_CONFIG_DIR": profiles[0]}), ("account folder b", {"CLAUDE_CONFIG_DIR": profiles[1]})):
         p = subprocess.run([claude, "mcp", "list"], capture_output=True, text=True, timeout=120, env=isolated(env, home), cwd=str(home))
         out = (p.stdout + p.stderr).strip()

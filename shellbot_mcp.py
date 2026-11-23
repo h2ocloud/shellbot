@@ -41,6 +41,13 @@ SERVER_NAME = "shellbot"
 PROTOCOLS = ("2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05")
 STATUS_TOOL = "shellbot_status"
 
+# An AI program starts the gateway and asks for its tools within its own start-up limit (Codex: 10 s by default), so
+# opening the session and listing the tools get a short budget; a stuck GitHub then shows as the status tool, not as a
+# server that never answered. A tool call may take longer.
+INIT_TIMEOUT_S = 3.0
+LIST_BUDGET_S = 5.0
+CALL_TIMEOUT_S = 45.0
+
 GITHUB_URL = "https://api.githubcopilot.com/mcp/"
 GITHUB_TOOLSETS = "repos,issues,pull_requests,actions"
 _TOOLSET_RE = re.compile(r"^[a-z][a-z0-9_]{0,40}(,[a-z][a-z0-9_]{0,40}){0,20}$")
@@ -149,10 +156,11 @@ class HttpMcpClient:
     `Mcp-Session-Id` the server hands out is kept and sent back, the session is re-opened once when the server
     forgot it."""
 
-    def __init__(self, url: str, headers: dict, timeout: float = 30.0, opener=None):
+    def __init__(self, url: str, headers: dict, timeout: float = 30.0, opener=None, init_timeout: float = INIT_TIMEOUT_S):
         self.url = url
         self.headers = dict(headers)
         self.timeout = timeout
+        self.init_timeout = init_timeout
         self.session_id = ""
         self.protocol = PROTOCOLS[1]
         self._id = 0
@@ -218,13 +226,14 @@ class HttpMcpClient:
             self.session_id, self._ready = "", False
             msg = self._post({"jsonrpc": "2.0", "id": self._next_id(), "method": "initialize",
                               "params": {"protocolVersion": self.protocol, "capabilities": {},
-                                         "clientInfo": {"name": SERVER_NAME, "version": _version()}}}, want_id="init")
+                                         "clientInfo": {"name": SERVER_NAME, "version": _version()}}}, want_id="init",
+                             timeout=self.init_timeout)
             if "error" in msg:
                 raise UpstreamError("rpc", str((msg["error"] or {}).get("message") or "initialize failed"), code=(msg["error"] or {}).get("code"))
             got = ((msg.get("result") or {}).get("protocolVersion"))
             if isinstance(got, str) and got in PROTOCOLS:
                 self.protocol = got
-            self._post({"jsonrpc": "2.0", "method": "notifications/initialized"})
+            self._post({"jsonrpc": "2.0", "method": "notifications/initialized"}, timeout=self.init_timeout)
             self._ready = True
 
     def request(self, method: str, params: dict = None, timeout: float = None) -> dict:
@@ -290,13 +299,14 @@ class Upstream:
 class GithubUpstream(Upstream):
     name = "github"
 
-    def __init__(self, backend=None, url: str = GITHUB_URL, settings: dict = None, opener=None, timeout: float = 45.0,
-                 retry_s: float = 3.0):
+    def __init__(self, backend=None, url: str = GITHUB_URL, settings: dict = None, opener=None, timeout: float = CALL_TIMEOUT_S,
+                 retry_s: float = 3.0, init_timeout: float = INIT_TIMEOUT_S, list_budget: float = LIST_BUDGET_S):
         from connectors import secrets
         self._store = secrets.SecretStore("github", backend)
         self.url = url
         self.settings = settings if settings is not None else github_settings()
         self.timeout = timeout
+        self.init_timeout, self.list_budget = init_timeout, list_budget
         self._opener = opener
         self._retry_s = retry_s
         self._token = ""
@@ -337,7 +347,7 @@ class GithubUpstream(Upstream):
     def _get_client(self) -> HttpMcpClient:
         with self._lock:
             if self._client is None:
-                self._client = HttpMcpClient(self.url, self._headers(), timeout=self.timeout, opener=self._opener)
+                self._client = HttpMcpClient(self.url, self._headers(), timeout=self.timeout, opener=self._opener, init_timeout=self.init_timeout)
             return self._client
 
     def _refresh_if_due(self) -> None:
@@ -351,10 +361,11 @@ class GithubUpstream(Upstream):
         self._refresh_if_due()
         return self._code
 
-    def _run(self, method: str, params: dict = None):
+    def _run(self, method: str, params: dict = None, timeout: float = None):
         """request() with one fresh read of the key store when GitHub says the token is wrong."""
+        timeout = timeout or self.timeout
         try:
-            return self._get_client().request(method, params, timeout=self.timeout)
+            return self._get_client().request(method, params, timeout=timeout)
         except UpstreamError as e:
             if e.kind != "auth":
                 raise
@@ -364,12 +375,16 @@ class GithubUpstream(Upstream):
             if not self._token or self._token == before:
                 self._code = "auth"
                 raise
-            return self._get_client().request(method, params, timeout=self.timeout)
+            return self._get_client().request(method, params, timeout=timeout)
 
     def list_tools(self) -> list:
         tools, cursor = [], None
+        deadline = time.monotonic() + self.list_budget
         for _ in range(20):
-            res = self._run("tools/list", {"cursor": cursor} if cursor else {})
+            left = deadline - time.monotonic()
+            if left <= 0:
+                raise UpstreamError("network", "listing the tools took too long")
+            res = self._run("tools/list", {"cursor": cursor} if cursor else {}, timeout=max(1.0, left))
             tools += [t for t in (res.get("tools") or []) if isinstance(t, dict) and isinstance(t.get("name"), str)]
             cursor = res.get("nextCursor")
             if not cursor:
@@ -417,6 +432,21 @@ class Gateway:
         self._lister = threading.Lock()
         self.reasons = {}                   # upstream name -> the code it last could not be used for ('' when fine)
         self.notify = None                  # fn(dict): where a server notification goes (the stdio writer)
+
+    def secret_values(self) -> list:
+        """The secrets the upstreams hold (the exact values), to be taken out of anything that leaves this process."""
+        return [v for v in (getattr(up, "token", "") for up in self.upstreams) if v and len(v) >= 4]
+
+    def clean(self, obj):
+        """`obj` (JSON-able) with every secret value replaced by ••••: an upstream's answer or error text may repeat the
+        token it was sent. Applied to every tool result, whoever asks (the stdio server, `sfctl call`)."""
+        vals = self.secret_values()
+        if not vals:
+            return obj
+        text = json.dumps(obj, ensure_ascii=False)
+        for v in vals:
+            text = text.replace(json.dumps(v, ensure_ascii=False)[1:-1], BULLETS).replace(v, BULLETS)
+        return json.loads(text)
 
     # -- tools ---------------------------------------------------------------
     def _status_tool(self) -> dict:
@@ -474,7 +504,7 @@ class Gateway:
             self.tools()
             if set(self._exposed) != before and self.notify:
                 self.notify({"jsonrpc": "2.0", "method": "notifications/tools/list_changed"})
-            return _text_result(text)
+            return self.clean(_text_result(text))
         with self._lock:
             target = self._exposed.get(name)
         if target is None:
@@ -485,7 +515,7 @@ class Gateway:
             return {"error": f"unknown tool: {name}"}
         up, raw = target
         try:
-            return up.call(raw, arguments)
+            return self.clean(up.call(raw, arguments))
         except Exception as e:
             log(f"{up.name} call crashed: {type(e).__name__}")
             return _text_result(f"{up.name}: {type(e).__name__}", True)
@@ -662,7 +692,7 @@ def main(argv=None, backend=None, github_url: str = GITHUB_URL, settings: dict =
     gw = build_gateway(backend=backend, github_url=github_url, settings=settings)
     log(f"gateway {_version()} started")
     try:
-        serve(gw, stdin, real_out, secret_values=lambda: [up.token for up in gw.upstreams if getattr(up, "token", "")])
+        serve(gw, stdin, real_out, secret_values=gw.secret_values)
     finally:
         gw.close()
     return 0

@@ -142,6 +142,32 @@ check("upstream unreachable: only shellbot_status", names(rpc(g, "tools/list")) 
 check("upstream unreachable: the status says it could not be reached", "could not be reached" in rpc(g, "tools/call", {"name": "shellbot_status"})["result"]["content"][0]["text"])
 g.close()
 
+print("── an upstream that accepts and never answers")
+check("the start-up budget is short enough for an AI program's own limit (Codex: 10 s)", mcp.INIT_TIMEOUT_S + mcp.LIST_BUDGET_S < 10)
+hup = fake.Upstream(hang=True)
+g = mcp.Gateway([mcp.GithubUpstream(backend=backend(), url=hup.url, init_timeout=1.0, list_budget=2.0)])
+t0 = time.monotonic()
+r = rpc(g, "tools/list")
+took = time.monotonic() - t0
+check("tools/list gives the status tool within the budget instead of waiting", names(r) == ["shellbot_status"] and took < 4.5, f"{took:.1f}s {names(r)}")
+check("and the status says GitHub could not be reached", "could not be reached" in rpc(g, "tools/call", {"name": "shellbot_status"})["result"]["content"][0]["text"])
+g.close()
+hup.stop()
+
+print("── the token the upstream repeats never leaves the gateway")
+lup = fake.Upstream(honor_readonly=False, extra=True)
+g = gw(lup, settings={"readonly": False, "toolsets": "repos"})
+r = rpc(g, "tools/list")
+for tool in ("github_leak", "github_crash500"):
+    res = rpc(g, "tools/call", {"name": tool})
+    check(f"{tool}: the result has the token replaced (the message itself, not only the stdio writer)", fake.FAKE_TOKEN not in json.dumps(res) and "••••" in json.dumps(res, ensure_ascii=False), str(res))
+code, out = mcp.cli_call("github", "leak", "{}", gateway=g)
+check("sfctl call: the printed answer has no token either", fake.FAKE_TOKEN not in json.dumps(out) and "••••" in json.dumps(out, ensure_ascii=False), str(out))
+code, out = mcp.cli_call("github", "crash500", "{}", gateway=g)
+check("sfctl call: an upstream error body that repeats the token is cleaned too, exit 1", code == 1 and fake.FAKE_TOKEN not in json.dumps(out), str(out))
+g.close()
+lup.stop()
+
 print("── the token saved after the gateway started is picked up")
 b = secrets.MemoryBackend()
 g = mcp.Gateway([mcp.GithubUpstream(backend=b, url=up.url, retry_s=0)])
@@ -221,7 +247,7 @@ leak = [{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
 p = subprocess.run([sys.executable, "-c", runner2], input="\n".join(json.dumps(r) for r in leak) + "\n", capture_output=True, text=True, timeout=60, env=env)
 logs = p.stderr + "".join(open(os.path.join(root, f), encoding="utf-8", errors="replace").read() for f in os.listdir(root))
 check("an upstream that repeats the token (an answer, an error body) does not get it onto the wire or into a log",
-      fake.FAKE_TOKEN not in p.stdout and fake.FAKE_TOKEN not in logs and "••••" in p.stdout and p.stdout.count("\n") == 4, p.stdout[:600])
+      fake.FAKE_TOKEN not in p.stdout and fake.FAKE_TOKEN not in logs and ("••••" in p.stdout or "\\u2022\\u2022" in p.stdout) and p.stdout.count("\n") == 4, p.stdout[:600])
 up.stop()
 
 print("── sfctl call (in this process, no app)")

@@ -485,7 +485,11 @@
   }
   function actionsBox(step) {
     if (!(step.actions || []).length && !(step.options || []).length) return '';
-    const opts = (step.options || []).map(o => `<button type="button" class="cn-opt${S.opts[o.id] ? ' on' : ''}" role="checkbox" aria-checked="${!!S.opts[o.id]}" ` +
+    const shown = o => {                                  // a tick box "cli_<id>" is for an AI program: not offered when it is not installed here
+      const m = /^cli_(.+)$/.exec(o.id), c = m && (L.clis || []).find(x => x && x.cli === m[1]);
+      return !c || c.installed !== false;
+    };
+    const opts = (step.options || []).filter(shown).map(o => `<button type="button" class="cn-opt${S.opts[o.id] ? ' on' : ''}" role="checkbox" aria-checked="${!!S.opts[o.id]}" ` +
       `data-act="opt" data-id="${esc(o.id)}"><i class="cn-box"></i><span>${esc(pick(o.label))}</span></button>`).join('');
     // An action with an `input` (a key or token to paste) gets a password field beside its button. The value lives only in
     // that field: it is read when the button is pressed, sent once, and the field is cleared; nothing keeps it.
@@ -494,6 +498,14 @@
       `${S.busy ? ' disabled' : ''}></label>`).join('');
     const acts = (step.actions || []).map(a => btn('do', S.busy === 'act:' + a.id ? t('Working…', '處理中…') : pick(a.label), 'primary', ` data-id="${esc(a.id)}"`)).join('');
     return `<div class="cn-acts">${opts}${field}<div class="cn-acts-row">${acts}</div></div>`;
+  }
+  // The AI programs ShellBot cannot set up itself (it only shows what to enter): the ones the person left ticked and has installed.
+  function manualBox(step) {
+    const list = (step.manual || []).filter(m => S.opts['cli_' + m.cli] !== false && ((L.clis || []).find(x => x && x.cli === m.cli) || {}).installed !== false);
+    if (!list.length) return '';
+    const rows = list.map(m => `<div class="cn-manual-row"><b>${esc(cliName(m.cli))}</b><small>${esc(m.where || '')}</small>` +
+      `<code>${esc((m.command || []).join(' '))}</code>${m.note ? `<small>${esc(pick(m.note))}</small>` : ''}</div>`).join('');
+    return `<div class="cn-manual"><div class="cn-manual-head">${esc(t('Add these by hand: ShellBot only shows what to enter', '這些要自己加：ShellBot 只列出要填的內容'))}</div>${rows}</div>`;
   }
   function stuckPanel(step) {
     const items = (step.stuck || []).map(p => {
@@ -646,7 +658,7 @@
     const how = (step.how || []).length ? `<ol class="cn-how">${step.how.map(l => `<li>${esc(pick(l))}</li>`).join('')}</ol>` : '';
     const see = step.see ? `<div class="cn-see"><b>${esc(t('What you should see', '看到這個就對了'))}</b><p>${esc(pick(step.see))}</p></div>` : '';
     const note = step.note ? `<div class="cn-fyi"><b>${esc(t('Good to know', '先知道'))}</b><p>${esc(pick(step.note))}</p></div>` : '';
-    return head + how + actionsBox(step) + resultBox(step) + errBox() + see + note;
+    return head + how + actionsBox(step) + resultBox(step) + manualBox(step) + errBox() + see + note;
   }
   function connectedBody() {
     const st = S.status || {};

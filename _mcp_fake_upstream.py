@@ -22,9 +22,11 @@ EXTRA = [{"name": n, "description": n, "inputSchema": {"type": "object"}, "annot
 class Upstream:
     """`mode`: json | sse. `honor_readonly`: drop write tools when X-MCP-Readonly is sent (GitHub does)."""
 
-    def __init__(self, mode="json", token=FAKE_TOKEN, honor_readonly=True, page_size=0, extra=False):
+    def __init__(self, mode="json", token=FAKE_TOKEN, honor_readonly=True, page_size=0, extra=False, hang=False):
         self.mode, self.token, self.honor_readonly, self.page_size = mode, token, honor_readonly, page_size
         self.tools = TOOLS + (EXTRA if extra else [])
+        self.hang = hang                   # accept the request and never answer (until stop())
+        self.release = threading.Event()
         self.requests = []                 # {"method", "headers", "body"}
         self.sessions = 0
         self.expire_next = False           # the next request with a session id gets 404 once
@@ -53,6 +55,9 @@ class Upstream:
                 raw = self.rfile.read(n)
                 msg = json.loads(raw or b"{}")
                 outer.requests.append({"method": "POST", "headers": {k.lower(): v for k, v in self.headers.items()}, "body": msg})
+                if outer.hang:
+                    outer.release.wait(30)
+                    return
                 if self.headers.get("Authorization") != f"Bearer {outer.token}":
                     return self._send(401, b'{"message":"Bad credentials"}')
                 m = msg.get("method")
@@ -110,5 +115,6 @@ class Upstream:
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
 
     def stop(self):
+        self.release.set()
         self.server.shutdown()
         self.server.server_close()

@@ -401,6 +401,41 @@
             "en": "The result below says the token is saved.",
             "zh": "下面的結果說 token 已儲存。"
           },
+          "check": {
+            "id": "token",
+            "on": "done",
+            "gate": true,
+            "pass": [
+              "ok"
+            ],
+            "states": {
+              "ok": {
+                "tone": "good",
+                "text": {
+                  "en": "The token is saved in the key store",
+                  "zh": "token 已存在鑰匙圈"
+                }
+              },
+              "missing": {
+                "tone": "warn",
+                "text": {
+                  "en": "No token is saved yet",
+                  "zh": "還沒有存任何 token"
+                },
+                "hint": {
+                  "en": "Paste it into the box and press \"Save token\".",
+                  "zh": "貼進欄位，按「儲存 token」。"
+                }
+              },
+              "unsupported": {
+                "tone": "bad",
+                "text": {
+                  "en": "This computer has no key store ShellBot can use",
+                  "zh": "這台電腦沒有 ShellBot 能用的鑰匙圈"
+                }
+              }
+            }
+          },
           "actions": [
             {
               "id": "save",
@@ -483,8 +518,8 @@
             }
           ],
           "see": {
-            "en": "Every AI you left ticked shows as connected.",
-            "zh": "你留著勾選的每個 AI 都顯示已連結。"
+            "en": "Each AI ShellBot can set up shows as connected. For the others (OpenCode, Cursor Agent, Pi) the box lists what to enter.",
+            "zh": "ShellBot 能設定的 AI 都顯示已連結。其他的（OpenCode、Cursor Agent、Pi）會在方框裡列出要填的內容。"
           },
           "options": [
             {
