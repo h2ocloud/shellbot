@@ -32,6 +32,7 @@ import urllib.error
 from datetime import datetime
 
 import sf_lang
+from account_manager import login_changed, token_fingerprint
 
 
 def _lang(en, zh): return sf_lang.pick(en, zh)
@@ -524,11 +525,13 @@ def _fetch_claude(env=None):
     # Fresh good reading → reuse, no network (dedups bursts from multiple callers)
     if c["data"] and now - c["ts"] < _CLAUDE_OK_TTL:
         return dict(c["data"])
-    # Back off between attempts so a retry storm can't keep us rate-limited.
-    if now - c["last_try"] < _CLAUDE_RETRY_MIN:
+    # Back off between attempts (retry-storm guard); a re-login after an auth failure clears it.
+    if now - c["last_try"] < _CLAUDE_RETRY_MIN and not login_changed(
+            c, lambda: _claude_oauth(env) if env else _claude_oauth()):
         return _claude_stale(c) if c["data"] else None
     c["last_try"] = now
-    token = (_claude_oauth(env) if env else _claude_oauth()).get("accessToken")
+    oauth = (_claude_oauth(env) if env else _claude_oauth())
+    token = oauth.get("accessToken")
     if token:
         try:
             req = urllib.request.Request(CLAUDE_USAGE_API, headers={
@@ -551,10 +554,16 @@ def _fetch_claude(env=None):
             if out:
                 c["data"] = out
                 c["ts"] = now
+                c["auth_fp"] = None
                 _save_claude_cache(c)
                 return out
+        except urllib.error.HTTPError as e:
+            if e.code in (401, 403):
+                c["auth_fp"] = token_fingerprint(oauth)
         except Exception:
             pass  # rate-limited / network — serve stale below, then legacy script
+    if not token:
+        c["auth_fp"] = ""        # no credential: any later token is a re-login
     if c["data"]:
         return _claude_stale(c)
     return _fetch_claude_script()
@@ -1302,7 +1311,8 @@ def _account_usage_locked(provider, env, ref, account, force, is_current,
         out = _shape(provider, dict(cache["data"]), account)
         out["checked"] = _fmt_epoch(cache["ts"])
         return out
-    if now - cache["last_try"] < _ACCOUNT_RETRY_MIN.get(provider, 60):
+    if now - cache["last_try"] < _ACCOUNT_RETRY_MIN.get(provider, 60) and not login_changed(
+            cache, lambda: _claude_oauth(env)):
         # Inside the backoff window even an explicit refresh must not fetch:
         # that is exactly how a panel re-open storm gets the token 429'd.
         if cache["data"]:
@@ -1335,6 +1345,7 @@ def _account_usage_locked(provider, env, ref, account, force, is_current,
         cache["data"] = {k: v for k, v in data.items() if k != "_stale"}
         cache["ts"] = now
         cache.pop("error", None)
+        cache["auth_fp"] = None
         _save_account_cache(key, cache)
         out = _shape(provider, data, account)
         out["checked"] = _fmt_epoch(now)
@@ -1343,6 +1354,9 @@ def _account_usage_locked(provider, env, ref, account, force, is_current,
         # Kept in memory only, so a restart is still worth one real retry.
         cache["error"] = {"_error": data["_error"],
                           "_error_message": data.get("_error_message", "")}
+        # Only an auth failure remembers its credential; 429/network keep the cooldown.
+        cache["auth_fp"] = token_fingerprint(_claude_oauth(env)) if (
+            provider == "claude" and data["_error"] in ("auth_required", "snapshot_stale")) else None
     if cache["data"]:
         # This attempt produced nothing usable, but we have a previous reading:
         # show it flagged (the reset times are still what the user wants).

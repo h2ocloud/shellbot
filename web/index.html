@@ -149,6 +149,7 @@
   .account-scope-card { flex:1; min-width:150px; background:#1a1b26; border:1px solid #292e42; border-radius:6px; padding:7px 9px; }
   .account-scope-card .scope { color:#565f89; font-size:10px; text-transform:uppercase; }
   .account-scope-card .who { color:#a9b1d6; font-size:11px; word-break:break-all; margin-top:3px; }
+  .account-scope-card .who small { color:#565f89; font-size:9px; margin-left:5px; border:1px solid #292e42; border-radius:3px; padding:0 4px; }
   .account-list { display:flex; flex-direction:column; gap:5px; margin-top:9px; }
   .account-row { display:flex; align-items:center; gap:7px; background:#1a1b26; border-radius:5px; padding:6px 8px; }
   .account-row .account-name { flex:1; color:#a9b1d6; font-size:11px; min-width:0; }
@@ -5084,65 +5085,10 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
     try {
       const raw = await pywebview.api.tab_usage_brief(activeId || '');
       const d = JSON.parse(raw || '{}');
-      const prov = (d && d.ai) || activeProv;
-      const hasNums = !!(d && (d.five_hr || d.week));
-      // Hard error AND nothing to fall back on → warning placeholder.
-      if (!d || ((d.error && d.error !== 'no_data') && !hasNums)) {
-        _usageBriefPlaceholder(el, t('usageErrorLabel') + ' ' + SFIcons.html('warn'),
-          t('usageErrorTip').replace('{error}', (d && d.error) || t('unknownError')));
-        _commitUsageRender(prov, false);
-        return;
-      }
-      // Reached the provider but no water-level (not logged in / empty) and no
-      // cached reading to show.
-      if (!hasNums) {
-        const who = d.ai || 'AI';
-        _usageBriefPlaceholder(el, t('usageMissingLabel'),
-          t('usageMissingTip').replaceAll('{who}', who));
-        _commitUsageRender(prov, false);
-        return;
-      }
-      // We have numbers — fresh, or the last known reading if d.stale (this
-      // refresh failed, e.g. rate-limited). Show them either way; a stale pill
-      // is dimmed + ⚠-marked, since the reset times are still what you want.
-      const seg = (label, info) => info
-        ? `<span class="ub-seg"><span class="ub-k">${label}</span>` +
-          `<span class="ub-v ${_usageLevel(info.pct)}">${info.pct}%</span></span>`
-        : '';
-      // 配速 segment：每個窗口各自跟在自己的用量後面（5h pc 在 5h 後、
-      // wk pc 在 wk 後）。原本只做 week，理由是「5h 窗口重置太頻繁」；但撞
-      // 5 小時上限時「這一輪燒太快嗎」其實才是最急的問題，所以兩個都給。
-      // `_usagePace` 在缺 reset_epoch／window_minutes 時回 null，來源沒提供
-      // 5h 配速資料就自動不顯示，不會變成假數字。
-      const on = _paceEnabled();
-      const pace5 = on ? _usagePace(d.five_hr) : null;
-      const paceWk = on ? _usagePace(d.week) : null;
-      const paceSeg = (pace) => pace
-        ? `<span class="ub-seg"><span class="ub-k">pc</span>` +
-          `<span class="ub-v ${_paceLevel(pace.diff)}">${pace.target}%` +
-          `<span class="ub-arrow">${_paceArrow(pace.diff)}</span></span></span>`
-        : '';
-      const win = (...p) => (p.join('') ? `<span class="ub-win">${p.join('')}</span>` : '');   // a window and its pace wrap together (chat.css #sb-dock)
-      el.innerHTML = (d.stale ? '<span class="ub-seg ub-none">' + SFIcons.html('warn') + '</span>' : '') +
-        win(seg('5h', d.five_hr), paceSeg(pace5)) + win(seg('wk', d.week), paceSeg(paceWk));
-      const tip = [];
-      if (d.stale) tip.push(t('usageStaleTip'));
-      if (d.account) tip.push(d.account);
-      if (d.five_hr) tip.push(t('usageFiveHrTip').replace('{pct}', d.five_hr.pct).replace('{reset}', d.five_hr.reset));
-      if (d.week) tip.push(t('usageWeekTip').replace('{pct}', d.week.pct).replace('{reset}', d.week.reset));
-      if (Array.isArray(d.groups)) {
-        d.groups.forEach(g => {
-          if (g && g.name && g.pct != null) tip.push(`${g.name} ${g.pct}%`);
-        });
-      }
-      // 兩個 pc 標籤同名，tooltip 必須標明各自屬於哪個窗口。
-      if (pace5) tip.push(t('pace5Title'), ..._paceTooltipLines(pace5, d.five_hr.pct));
-      if (paceWk) tip.push(t('paceWeekTitle'), ..._paceTooltipLines(paceWk, d.week.pct));
-      if (d.snapshot) tip.push(t('usageSnapshotTip').replace('{snapshot}', d.snapshot));
-      el.title = tip.join('\n') || t('usageBriefTitle');
-      el.classList.toggle('stale', !!d.stale);
-      el.style.display = '';
-      _commitUsageRender(prov, !d.stale);
+      _renderUsageBrief(el, d, activeProv);
+      // The pill just read a fresh number: an open accounts panel shows the
+      // same account's row, so bring that row up to date too.
+      try { if (typeof _syncAccountRowFromBrief === 'function') _syncAccountRowFromBrief(d); } catch (_) {}
     } catch (_) {
       // JS/IPC error: dim the last good reading if we have one, else placeholder.
       const keptReal = el.innerHTML && !el.querySelector('.ub-none');
@@ -5155,10 +5101,98 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
       _commitUsageRender(activeProv, !!keptReal);
     }
   }
+  // Paint one usage reading (backend shape) into the pill. Shared by the
+  // polling path above and by the accounts panel, which pushes a fresh reading
+  // for the tab's own account without a second query.
+  function _renderUsageBrief(el, d, activeProv) {
+    const prov = (d && d.ai) || activeProv;
+    const hasNums = !!(d && (d.five_hr || d.week));
+    // Hard error AND nothing to fall back on → warning placeholder.
+    if (!d || ((d.error && d.error !== 'no_data') && !hasNums)) {
+      _usageBriefPlaceholder(el, t('usageErrorLabel') + ' ' + SFIcons.html('warn'),
+        t('usageErrorTip').replace('{error}', (d && d.error) || t('unknownError')));
+      _commitUsageRender(prov, false);
+      return;
+    }
+    // Reached the provider but no water-level (not logged in / empty) and no
+    // cached reading to show.
+    if (!hasNums) {
+      const who = d.ai || 'AI';
+      _usageBriefPlaceholder(el, t('usageMissingLabel'),
+        t('usageMissingTip').replaceAll('{who}', who));
+      _commitUsageRender(prov, false);
+      return;
+    }
+    // We have numbers — fresh, or the last known reading if d.stale (this
+    // refresh failed, e.g. rate-limited). Show them either way; a stale pill
+    // is dimmed + ⚠-marked, since the reset times are still what you want.
+    const seg = (label, info) => info
+      ? `<span class="ub-seg"><span class="ub-k">${label}</span>` +
+        `<span class="ub-v ${_usageLevel(info.pct)}">${info.pct}%</span></span>`
+      : '';
+    // 配速 segment：每個窗口各自跟在自己的用量後面（5h pc 在 5h 後、
+    // wk pc 在 wk 後）。原本只做 week，理由是「5h 窗口重置太頻繁」；但撞
+    // 5 小時上限時「這一輪燒太快嗎」其實才是最急的問題，所以兩個都給。
+    // `_usagePace` 在缺 reset_epoch／window_minutes 時回 null，來源沒提供
+    // 5h 配速資料就自動不顯示，不會變成假數字。
+    const on = _paceEnabled();
+    const pace5 = on ? _usagePace(d.five_hr) : null;
+    const paceWk = on ? _usagePace(d.week) : null;
+    const paceSeg = (pace) => pace
+      ? `<span class="ub-seg"><span class="ub-k">pc</span>` +
+        `<span class="ub-v ${_paceLevel(pace.diff)}">${pace.target}%` +
+        `<span class="ub-arrow">${_paceArrow(pace.diff)}</span></span></span>`
+      : '';
+    const win = (...p) => (p.join('') ? `<span class="ub-win">${p.join('')}</span>` : '');   // a window and its pace wrap together (chat.css #sb-dock)
+    el.innerHTML = (d.stale ? '<span class="ub-seg ub-none">' + SFIcons.html('warn') + '</span>' : '') +
+      win(seg('5h', d.five_hr), paceSeg(pace5)) + win(seg('wk', d.week), paceSeg(paceWk));
+    const tip = [];
+    if (d.stale) tip.push(t('usageStaleTip'));
+    if (d.account) tip.push(d.account);
+    if (d.five_hr) tip.push(t('usageFiveHrTip').replace('{pct}', d.five_hr.pct).replace('{reset}', d.five_hr.reset));
+    if (d.week) tip.push(t('usageWeekTip').replace('{pct}', d.week.pct).replace('{reset}', d.week.reset));
+    if (Array.isArray(d.groups)) {
+      d.groups.forEach(g => {
+        if (g && g.name && g.pct != null) tip.push(`${g.name} ${g.pct}%`);
+      });
+    }
+    // 兩個 pc 標籤同名，tooltip 必須標明各自屬於哪個窗口。
+    if (pace5) tip.push(t('pace5Title'), ..._paceTooltipLines(pace5, d.five_hr.pct));
+    if (paceWk) tip.push(t('paceWeekTitle'), ..._paceTooltipLines(paceWk, d.week.pct));
+    if (d.snapshot) tip.push(t('usageSnapshotTip').replace('{snapshot}', d.snapshot));
+    el.title = tip.join('\n') || t('usageBriefTitle');
+    el.classList.toggle('stale', !!d.stale);
+    el.style.display = '';
+    _commitUsageRender(prov, !d.stale);
+  }
   let _accountPanelEl = null;
   // Last readings, kept between opens so re-opening the panel paints numbers
   // immediately (with their timestamp) while a refresh runs in the background.
   let _accountUsage = {};
+  // provider -> id of the account the ACTIVE tab runs on (its pinned one, or the
+  // machine's own login when nothing is pinned); set when the panel renders.
+  let _accountTabRef = {};
+  // The panel read a fresh number for the account this tab runs on: repaint the
+  // pill from it right away, no second query (it is the same reading).
+  function _pushAccountUsageToBrief() {
+    const el = document.getElementById('usage-brief');
+    const prov = _usageProviderFor(activeId);
+    const ref = _accountTabRef[prov];
+    const u = ref && (_accountUsage[prov] || {})[ref];
+    if (!el || !u || u.stale || u.error || !(u.five_hr || u.week)) return;
+    _renderUsageBrief(el, Object.assign({ ai: prov }, u), prov);
+  }
+  // Reverse direction: the pill read a fresh number; update that account's row
+  // if the panel is open.
+  function _syncAccountRowFromBrief(d) {
+    if (!d || !d.ai || !d.account_ref || d.stale || d.error || !(d.five_hr || d.week)) return;
+    if (!_accountPanelEl || !_accountPanelEl.classList.contains('open')) return;
+    const row = Object.assign({}, d, { is_current_login: true });
+    (_accountUsage[d.ai] = _accountUsage[d.ai] || {})[d.account_ref] = row;
+    _accountPanelEl.querySelectorAll('[data-usage-key]').forEach(el => {
+      if (el.dataset.usageKey === `${d.ai}|${d.account_ref}`) el.innerHTML = _accountUsageHtml(row);
+    });
+  }
   async function _loadAccountUsage(force) {
     if (!_accountPanelEl) return;
     const cells = _accountPanelEl.querySelectorAll('[data-usage-key]');
@@ -5172,6 +5206,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
         const [provider, ref] = (el.dataset.usageKey || '').split('|');
         el.innerHTML = _accountUsageHtml((_accountUsage[provider] || {})[ref]);
       });
+      _pushAccountUsageToBrief();
     } catch (error) {
       cells.forEach(el => {
         el.innerHTML = `<span class="au-bad">${SFIcons.html('warn')} ${esc(error.message || t('usageQueryFailed'))}</span>`;
@@ -5232,6 +5267,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
     // Label comes from the registry so a new provider needs no change here.
     const title = (AI_PROVIDERS[provider] && AI_PROVIDERS[provider].label) || provider;
     const current = info.current, global = info.global;
+    _accountTabRef[provider] = (current && current.id) || '';
     const usage = (_accountUsage[provider] || {});
     // Some CLIs sign in as exactly one account and manage it themselves, so
     // there is nothing to switch between — show the water-level, drop the
@@ -5271,7 +5307,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
     }
     return `<div class="account-provider"><div class="account-provider-title"><span>${title}</span>` +
       `<span style="font-size:10px;color:#565f89">${info.logged_in ? tf('accountCount', {count: info.accounts.length}) : t('notLoggedIn')}</span></div>` +
-      `<div class="account-scope"><div class="account-scope-card"><div class="scope">${t('currentSession')}</div><div class="who">${esc(_accountLabel(current))}</div></div>` +
+      `<div class="account-scope"><div class="account-scope-card"><div class="scope">${t('currentSession')}</div><div class="who">${esc(_accountLabel(current))}` +
+        `${current && info.current_source === 'global_login' ? `<small>${t('globalLoginTag')}</small>` : ''}</div></div>` +
       `<div class="account-scope-card"><div class="scope">${t('nextSessionGlobal')}</div><div class="who">${esc(_accountLabel(global))}</div></div></div>` +
       `<div class="account-list">${rows || `<div style="color:#565f89;font-size:11px;padding:5px">${t('noLoginAccounts')}</div>`}</div>` +
       `<div style="display:flex;gap:6px;margin-top:8px"><button class="btn btn-primary" data-account-action="login" data-provider="${provider}">${t('loginNewAccount')}</button>` +
