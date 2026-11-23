@@ -20,8 +20,8 @@ sfctl version
 ```
 
 ```
-OK ShellBot v0.63.0
-   version: 0.63.0
+OK ShellBot v0.64.0
+   version: 0.64.0
    experimental: {"experimental_a2a": true, "experimental_bots": true, "experimental_groups": true, "experimental_loops": false, "experimental_office": false}
 ```
 
@@ -742,6 +742,7 @@ sfctl deliver show N
 | No new commands: the office's ops TV (`experimental_ops`, off by default, §4.10): this computer's CPU, memory, network and disk on the lobby wall, red on a lasting problem, one system notification per alert, rules in `ops.json`; the page's `office_object_view` / `office_object_live` / `ops_state` | 0.61.0 |
 | No new commands: the office's 整理位置 (arrange the paired computers' rooms around this one, kept in the office preferences' `arrange`); the ops board on paired computers (a small TV in each paired room, its detail window read-only, over the signed `/link/ops`, `/link/ops/view`, `/link/ops/live`); ops sampling on Windows; room signs keep clear of the furniture | 0.62.0 |
 | No new commands: the ops board shows CPU and GPU temperatures (Linux sysfs; NVIDIA through `nvidia-smi` on Linux and Windows; macOS and the Windows CPU are not read), on the TVs, a Temperatures section in the detail window, and two rules (CPU above 90 °C, GPU above 85 °C, for 5 minutes; the degrees can be changed) | 0.63.0 |
+| `sfctl call github <tool> --args '{json}'` / `sfctl call --list`: GitHub through ShellBot's own MCP gateway (`shellbot-gateway`, added to every AI program and account folder from Settings → Connect; the token stays in the system key store; read-only unless writing is switched on). Figma is connected by each AI that Figma approves (Claude Code, Codex, Cursor) from the same page | 0.64.0 |
 
 When a feature is newer than the running build, the command simply does not
 exist and you get `ERR Unknown command`. Report that; do not fall back to

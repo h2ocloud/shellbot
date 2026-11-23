@@ -6,6 +6,60 @@
 > 撰寫規範見 [`docs/changelog-guide.md`](docs/changelog-guide.md)，
 > 由 `tests_changelog_format.py` 強制檢查。
 
+## v0.64.0 (2026-11-23)
+
+### Added
+
+- **GitHub for every AI program, through ShellBot's own MCP gateway.**
+  Asked for: ShellBot connecting to GitHub itself, usable by every AI program, not only Claude. Settings → Connect →
+  GitHub walks through making a fine-grained personal access token (only the repositories and permissions you pick),
+  keeps it in the system key store (macOS Keychain, Windows Credential Manager), and adds one MCP server,
+  `shellbot-gateway`, to the AI programs you tick: Claude Code and Codex in every account folder, Antigravity and
+  Grok Build, and a command to paste for OpenCode, Cursor and Pi. The gateway reads the token itself when an AI starts
+  it, so the token is in no AI's settings, arguments or environment; it forwards GitHub's own remote MCP server and
+  masks the token in anything it returns. It is read-only unless you tick "also allow changes", and by default offers
+  only the repositories, issues, pull requests and Actions tools, which keeps each tab's tool list short. Scripts call
+  it with `sfctl call github <tool> --args '{json}'` and `sfctl call --list`. Linux has no key store ShellBot uses, so
+  GitHub says it is not supported there yet. Covered by `tests_shellbot_mcp.py`, `tests_connector_github.py`,
+  `tests_connect_github_ui.py` and `tests_gateway_paths.py`.
+
+  **GitHub 給所有 AI 程式用，走 ShellBot 自己的 MCP 閘道。** 需求：ShellBot 自己接 GitHub，而且不只 Claude，每個 AI 程式都能用。
+  設定 →「連結」→ GitHub 一步步帶你建細粒度個人 token（只勾你要的 repo 和權限），存進系統鑰匙圈（macOS Keychain、Windows 認證管理員），
+  再把一個 MCP 伺服器 `shellbot-gateway` 加進你勾的 AI 程式：Claude Code 和 Codex 的每個帳號資料夾、Antigravity、Grok Build；OpenCode、
+  Cursor、Pi 給一行指令貼上。AI 啟動閘道時由閘道自己讀 token，所以 token 不在任何 AI 的設定、參數或環境裡；閘道轉接 GitHub 官方的遠端 MCP，
+  傳回的內容會把 token 遮掉。預設唯讀，勾「也允許修改」才能寫入；預設只開 repo、issue、PR、Actions 這幾組工具，每個分頁的工具清單比較短。
+  腳本用 `sfctl call github <工具> --args '{json}'` 和 `sfctl call --list` 呼叫。Linux 沒有 ShellBot 能用的鑰匙圈，GitHub 先標示不支援。由
+  `tests_shellbot_mcp.py`、`tests_connector_github.py`、`tests_connect_github_ui.py`、`tests_gateway_paths.py` 守著。
+
+- **Figma, connected by each AI that Figma approves.**
+  Figma's remote MCP server only accepts the programs Figma has approved and does not take personal tokens, so
+  ShellBot does not hold a Figma sign-in. Settings → Connect → Figma adds Figma's server to Claude Code and Codex in
+  every account folder, and to Cursor, without touching an entry you made yourself; then you sign in once per account
+  folder (in a Claude tab, /mcp). Antigravity, Grok Build, OpenCode and Pi get no button: the page says Figma only
+  accepts the programs it approves and to use a Claude Code or Codex tab. Covered by `tests_connector_remote_mcp.py`
+  and `tests_connect_figma_ui.py`.
+
+  **Figma 由 Figma 核准的 AI 自己接。** Figma 的遠端 MCP 只接受 Figma 核准的程式，也不收個人 token，所以 ShellBot 不保管 Figma 登入。
+  設定 →「連結」→ Figma 會把 Figma 的伺服器加進 Claude Code、Codex 的每個帳號資料夾和 Cursor，你自己加過的不會動；之後每個帳號資料夾登入
+  一次（Claude 分頁裡打 /mcp）。Antigravity、Grok Build、OpenCode、Pi 沒有按鈕：頁面寫明 Figma 只接受它核准的程式，請用 Claude Code 或
+  Codex 的分頁。由 `tests_connector_remote_mcp.py`、`tests_connect_figma_ui.py` 守著。
+
+### Fixes
+
+- **The usage pill and the accounts panel agree.**
+  Reported with screenshots: the panel showed 4% for five hours and 92% for the week, queried a minute before, while
+  the pill at the top still showed an older 0% and 85% marked as stale, and the panel said the current session was not
+  signed in although the tab used the signed-in global account. When the panel reads new numbers for the account the
+  tab uses, the pill takes them at once, and the other way round; a tab with no account of its own shows the account
+  it really uses, marked "global", when that account matches one of the saved accounts exactly (e-mail, organisation
+  and plan); and signing in again clears the wait that followed a failed reading, so the next reading is fresh. Other
+  accounts never share readings. Covered by `tests_usage_sync.py` and `tests_usage_sync_ui.py`.
+
+  **用量膠囊和帳號面板對得上。** 回報（附截圖）：面板顯示 5 小時 4%、一週 92%，一分鐘前才查過；上方膠囊還是舊的 0%、85%，標著過期，面板也說
+  目前 Session 未登入，其實那個分頁用的是已登入的全域帳號。現在面板查到分頁所用帳號的新數字，膠囊立刻跟著更新，反過來也一樣；沒綁帳號的
+  分頁，若實際登入的帳號和某個已存帳號完全相同（email、組織、方案），顯示那個帳號並標「全域」；重新登入後清掉查詢失敗後的等待，下一次就重查。
+  不同帳號不會共用讀數。由 `tests_usage_sync.py`、`tests_usage_sync_ui.py` 守著。
+
 ## v0.63.1 (2026-11-21)
 
 ### Added
