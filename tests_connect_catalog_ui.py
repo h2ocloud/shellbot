@@ -397,7 +397,7 @@ def run(browser):
     recommended = sorted(i for i in reg.ids() if desc[i].get("recommended") and not desc[i].get("local_app"))
     local = sorted(i for i in reg.ids() if desc[i].get("local_app"))
     check("Recommended for you: every recommended service, each with a Connect button",
-          sorted(ids("rec")) == recommended and len(recommended) == 4 and "slack" not in recommended
+          sorted(ids("rec")) == recommended and len(recommended) == 5 and "slack" not in recommended and "figma" in recommended
           and all(b == "連結" for b in sec(page, "rec").locator("button.cn-btn").all_inner_texts()), (ids("rec"), recommended))
     beta = sorted(i for i in local if any(r.get("beta") for r in desc[i]["routes"]))
     later = sorted(i for i in local if desc[i].get("unavailable"))
@@ -407,7 +407,7 @@ def run(browser):
           and all(sec(page, "local").locator(f'.cg-row[data-service="{i}"] button').inner_text() == "連結"
                   and sec(page, "local").locator(f'.cg-row[data-service="{i}"] .cg-beta').inner_text() == "測試版" for i in beta)
           and all(sec(page, "local").locator(f'.cg-row[data-service="{i}"] button').inner_text() == "還不能連結" for i in later), ids("local"))
-    check("the bubbles are the descriptions' categories", pills(page) == ["全部", "Mac", "生產力", "通訊"], pills(page))
+    check("the bubbles are the descriptions' categories", pills(page) == ["全部", "Mac", "生產力", "通訊", "設計"], pills(page))
     check("a service that is not recommended is under More services, and in its category's bubble",
           "slack" in ids("rest") and desc["slack"]["category"]["id"] == "communication")
     check("nothing connected: 0", page.locator("#settings-panel-connect .cg-count").inner_text() == "已連結 0 個 ›")
@@ -421,7 +421,7 @@ def run(browser):
     page, errors = open_page(browser, data=(rows, cat_, desc), platform="windows")
     keys = page.locator("#settings-panel-connect .cg-sec").evaluate_all("els => els.map(e => e.dataset.sec)")
     check("no This PC section and no bubble for it: the Mac apps are not this computer's",
-          "local" not in keys and pills(page) == ["全部", "生產力", "通訊"], (keys, pills(page)))
+          "local" not in keys and pills(page) == ["全部", "生產力", "通訊", "設計"], (keys, pills(page)))
     home = page.locator("#settings-panel-connect .cg-row").evaluate_all("els => els.map(e => e.dataset.service)")
     check("…and the home list does not show them anywhere", not set(home) & set(local)
           and sorted(home) == sorted(i for i in reg.ids() if i not in local), home)

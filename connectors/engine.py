@@ -138,6 +138,13 @@ def _fields(table, code, res) -> dict:
     return {k: res[k] for k in sorted(names) if isinstance(res.get(k), (str, int, float)) and not isinstance(res.get(k), bool)}
 
 
+def _rows(res) -> dict:
+    """{"rows": [short strings]} when an adapter's answer carries a list of them (one line per AI program and account
+    folder: "cli|folder|state|label"); kept with the result so the card can list them. Nothing else nested is kept."""
+    rows = (res or {}).get("rows")
+    return {"rows": [r for r in rows if isinstance(r, str)][:20]} if isinstance(rows, list) and rows else {}
+
+
 def _fill(text, fields) -> dict:
     """A {en, zh} text with its {name}s filled in; a name with no value is taken out (with brackets around it)."""
     if not isinstance(text, dict):
@@ -305,11 +312,11 @@ class Engine:
             res = sr.get("result")
             action = next((a for a in cur.get("actions", []) if res and a["id"] == res.get("action")), None)
             step["result"] = ({"action": res["action"], "code": res["code"],
-                               **self._step_words((action or {}).get("results"), res["code"], fields=res.get("fields"))} if res else None)
+                               **self._step_words((action or {}).get("results"), res["code"], fields=res.get("fields")), **_rows(res)} if res else None)
             chk = sr.get("check")
             step["check"] = ({"code": chk["code"], "passed": bool(chk.get("passed")),
                               **self._step_words((cur.get("check") or {}).get("states"), chk["code"], "info" if chk.get("passed") else "warn",
-                                                 fields=chk.get("fields"))}
+                                                 fields=chk.get("fields")), **_rows(chk)}
                              if chk and cur.get("check") else None)
             prob = rec.get("problem") or {}
             step["message"] = (health.build(desc, rec, route)["problem"]
@@ -436,7 +443,7 @@ class Engine:
             passed = code in chk["pass"]
         if record:
             fields = _fields(chk.get("states"), code, res) if fn else {}
-            self._mark(service, step["id"], check={"code": code, "passed": passed, **({"fields": fields} if fields else {})})
+            self._mark(service, step["id"], check={"code": code, "passed": passed, **({"fields": fields} if fields else {}), **(_rows(res) if fn else {})})
         return passed, code
 
     # ── reconnect: keep what is still true ─────────────────────────────────
@@ -553,7 +560,7 @@ class Engine:
         if res["state"] == "__error__":
             return self._fail(service, "adapter_error")
         fields = _fields(action.get("results"), res["state"], res)
-        self._mark(service, step["id"], result={"action": action_id, "code": res["state"], **({"fields": fields} if fields else {})})
+        self._mark(service, step["id"], result={"action": action_id, "code": res["state"], **({"fields": fields} if fields else {}), **_rows(res)})
         _dlog("connect", f"act {service}/{step['id']}/{action_id}: {res['state']}")
         extra = {k: v for k, v in res.items() if k != "state"}
         done = False

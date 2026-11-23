@@ -86,6 +86,11 @@ SUPPORT = {
 }
 
 
+# The programs a remote MCP server can be put into (remote_mcp.py): Claude Code and Codex through their `mcp` commands, Cursor
+# through ~/.cursor/mcp.json (looked up 2026-11 on the service's own install page; `cursor-agent mcp list` could not be run).
+REMOTE_MODES = {"claude": "auto", "codex": "auto", "cursor": "auto"}
+
+
 class ForeignEntry(ValueError):
     """A server name that is not ShellBot's own. Nothing was run."""
     code = "cli_foreign_entry"
@@ -170,6 +175,8 @@ def mode_for(cli: str, kind: str) -> str:
     spec = SUPPORT.get(cli)
     if not spec:
         return "unsupported"
+    if kind == "remote_mcp":
+        return REMOTE_MODES.get(cli, "unsupported")
     if kind == "claude_connector":
         return "connector" if spec["connector"] else "unsupported"
     return spec["mcp"]

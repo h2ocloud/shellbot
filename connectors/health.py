@@ -157,6 +157,7 @@ _WORDS = {
 KIND_WORDS = {
     "claude_connector": ("the Claude account's connector: Claude tabs only", "Claude 帳號連接器：只有 Claude 分頁能用"),
     "local_mcp": ("a local MCP server", "本機 MCP 伺服器"),
+    "remote_mcp": ("a remote MCP server in each AI program", "加進各個 AI 的遠端 MCP 伺服器"),
     "api_key": ("an API key", "API 金鑰"),
     "oauth": ("a sign-in", "登入授權"),
 }

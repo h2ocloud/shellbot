@@ -82,7 +82,8 @@ def parse_claude(out: str) -> list:
         if name.lower().startswith(_CONNECTOR):
             entries.append({"name": name, "kind": "connector", "label": name[len(_CONNECTOR):], "words": [], "state": state, "why": why})
         elif re.match(r"^[a-z]+://", middle, re.I):
-            entries.append({"name": name, "kind": "remote", "label": "", "words": [], "state": state, "why": why})
+            entries.append({"name": name, "kind": "remote", "label": "", "words": [], "state": state, "why": why,
+                            "url": middle.split()[0]})          # the address, kept in memory for matching only
         else:
             entries.append({"name": name, "kind": "local", "label": "", "words": middle.split(), "state": state, "why": why})
     return entries
@@ -122,7 +123,7 @@ def parse_codex(out: str):
         else:
             state, why = "found", ""
         entries.append({"name": name, "kind": "local" if local else "remote", "label": "", "words": [w for w in words if w],
-                        "state": state, "why": why})
+                        "state": state, "why": why, "url": cell.get("url", ""), "auth": auth})
     if not seen and re.search(r"no mcp servers configured", str(out or ""), re.I):
         return []                                   # its words for an empty list
     return entries if seen else None
@@ -132,6 +133,12 @@ PARSERS = {"claude": (["mcp", "list"], parse_claude), "codex": (["mcp", "list"],
 
 
 # ── what a route is recognized by (its description) ────────────────────────
+def same_url(a, b) -> bool:
+    """The same address: case and a trailing slash aside."""
+    n = lambda u: str(u or "").strip().lower().rstrip("/")
+    return bool(n(a)) and n(a) == n(b)
+
+
 def _norm(s) -> str:
     return " ".join(str(s or "").lower().split())
 
@@ -201,6 +208,13 @@ def match(entries, cli: str, registry) -> list:
                     if e["kind"] == "connector" and want and _norm(e["label"]) == want:
                         hits.append({"service": sid, "route": route["id"], "entry": "", "state": e["state"], "why": e["why"],
                                      "own": False, "adopted": False})
+            elif via == "remote" and route.get("remote"):
+                # a remote server the person added under the route's name, at the route's address: theirs, used as it is
+                want = route["remote"]
+                for e in entries:
+                    if e["kind"] == "remote" and e["name"] == want["name"] and same_url(e.get("url"), want["url"]):
+                        hits.append({"service": sid, "route": route["id"], "entry": _shown(e["name"]), "state": e["state"],
+                                     "why": e["why"], "own": False, "adopted": True})
             elif via == "mcp" and route.get("mcp"):
                 server, wanted = str(route["mcp"].get("server") or ""), set(packages(route))
                 for e in entries:

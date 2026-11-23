@@ -1,0 +1,668 @@
+{
+  "schema": 1,
+  "id": "figma",
+  "name": {
+    "en": "Figma",
+    "zh": "Figma"
+  },
+  "icon": "design",
+  "summary": {
+    "en": "Let your bots read your Figma designs",
+    "zh": "讓 bot 讀你的 Figma 設計"
+  },
+  "category": {
+    "id": "design",
+    "name": {
+      "en": "Design",
+      "zh": "設計"
+    }
+  },
+  "recommended": true,
+  "platforms": [
+    "mac",
+    "windows",
+    "linux"
+  ],
+  "adapter": "connectors.services.figma",
+  "scopes": [
+    {
+      "id": "account",
+      "label": {
+        "en": "What you allow on Figma's sign-in page (it lists it when you sign in)",
+        "zh": "你在 Figma 登入頁允許的事（登入時頁面會列出來）"
+      },
+      "required": true
+    }
+  ],
+  "routes": [
+    {
+      "id": "remote",
+      "kind": "remote_mcp",
+      "name": {
+        "en": "Add Figma's server to your AI programs",
+        "zh": "把 Figma 的伺服器加進你的 AI 程式"
+      },
+      "blurb": {
+        "en": "Figma only lets the programs on its own approved list connect (Claude Code, Codex, Cursor), and takes no personal token. So ShellBot adds Figma's server to those AIs and you sign in there once per account; the sign-in is theirs, not ShellBot's.",
+        "zh": "Figma 只開放它核准名單上的程式連接（Claude Code、Codex、Cursor），也不收個人 token。所以 ShellBot 把 Figma 的伺服器加進這幾個 AI，你在那邊每個帳號各登入一次；登入是它們的，不是 ShellBot 的。"
+      },
+      "recommended": true,
+      "minutes": 5,
+      "needs": [
+        {
+          "en": "Claude Code, Codex or Cursor installed",
+          "zh": "裝有 Claude Code、Codex 或 Cursor"
+        },
+        {
+          "en": "A Figma account",
+          "zh": "一個 Figma 帳號"
+        }
+      ],
+      "scopes": [
+        "account"
+      ],
+      "remote": {
+        "name": "figma",
+        "url": "https://mcp.figma.com/mcp"
+      },
+      "clis": {
+        "claude": {
+          "via": "remote",
+          "note": {
+            "en": "ShellBot adds the server to Claude Code with `claude mcp add --transport http`, in the default folder and in each Claude account folder ShellBot made. Then you sign in once per account folder with /mcp in a tab of that account.",
+            "zh": "ShellBot 用 `claude mcp add --transport http` 把伺服器加進 Claude Code：預設資料夾，和 ShellBot 建的每個 Claude 帳號資料夾。之後每個帳號資料夾各登入一次：在那個帳號的分頁打 /mcp。"
+          }
+        },
+        "codex": {
+          "via": "remote",
+          "note": {
+            "en": "ShellBot adds the server with `codex mcp add --url`, in the default folder and in each Codex account folder. You sign in with `codex mcp login figma`.",
+            "zh": "ShellBot 用 `codex mcp add --url` 加進去：預設資料夾，和每個 Codex 帳號資料夾。登入用 `codex mcp login figma`。"
+          }
+        },
+        "cursor": {
+          "via": "remote",
+          "note": {
+            "en": "ShellBot writes the server into ~/.cursor/mcp.json (other servers in the file are kept). You sign in with the Connect button in Cursor's Tools & MCP settings, or `cursor-agent mcp login figma`. ShellBot cannot read Cursor's sign-in state.",
+            "zh": "ShellBot 把伺服器寫進 ~/.cursor/mcp.json（檔案裡別的伺服器都保留）。登入用 Cursor「Tools & MCP」設定裡的 Connect 按鈕，或 `cursor-agent mcp login figma`。ShellBot 讀不到 Cursor 的登入狀態。"
+          }
+        },
+        "agy": {
+          "via": "none",
+          "note": {
+            "en": "Figma only lets the programs on its approved list connect (Claude Code, Codex and Cursor), so this AI cannot be connected directly. Use Figma from a Claude Code or Codex tab.",
+            "zh": "Figma 只開放它核准的程式（Claude Code、Codex、Cursor），這個 AI 不能直接接；請在 Claude Code 或 Codex 的分頁用。"
+          }
+        },
+        "grok": {
+          "via": "none",
+          "note": {
+            "en": "Figma only lets the programs on its approved list connect (Claude Code, Codex and Cursor), so this AI cannot be connected directly. Use Figma from a Claude Code or Codex tab.",
+            "zh": "Figma 只開放它核准的程式（Claude Code、Codex、Cursor），這個 AI 不能直接接；請在 Claude Code 或 Codex 的分頁用。"
+          }
+        },
+        "opencode": {
+          "via": "none",
+          "note": {
+            "en": "Figma only lets the programs on its approved list connect (Claude Code, Codex and Cursor), so this AI cannot be connected directly. Use Figma from a Claude Code or Codex tab.",
+            "zh": "Figma 只開放它核准的程式（Claude Code、Codex、Cursor），這個 AI 不能直接接；請在 Claude Code 或 Codex 的分頁用。"
+          }
+        },
+        "pi": {
+          "via": "none",
+          "note": {
+            "en": "Figma only lets the programs on its approved list connect (Claude Code, Codex and Cursor), so this AI cannot be connected directly. Use Figma from a Claude Code or Codex tab.",
+            "zh": "Figma 只開放它核准的程式（Claude Code、Codex、Cursor），這個 AI 不能直接接；請在 Claude Code 或 Codex 的分頁用。"
+          }
+        }
+      },
+      "steps": [
+        {
+          "id": "f1",
+          "title": {
+            "en": "Add Figma to your AIs",
+            "zh": "把 Figma 加進你的 AI"
+          },
+          "how": [
+            {
+              "en": "Press \"Add it for me\". ShellBot adds Figma's server (mcp.figma.com) to Claude Code, Codex and Cursor, in the default folder and in every Claude or Codex account folder ShellBot made, so a tab of any account sees it.",
+              "zh": "按「幫我加進去」。ShellBot 會把 Figma 的伺服器（mcp.figma.com）加進 Claude Code、Codex、Cursor：預設資料夾，和 ShellBot 建的每個 Claude、Codex 帳號資料夾，這樣任何帳號的分頁都看得到。"
+            },
+            {
+              "en": "If you already added it yourself under the name figma at the same address, ShellBot leaves it as it is and counts it as added. At a different address it does not touch it and tells you.",
+              "zh": "你自己已經用 figma 這個名字、同一個網址加過的，ShellBot 不動它，直接當作已加。網址不一樣的它也不動，只告訴你。"
+            },
+            {
+              "en": "Other AIs (Antigravity, Grok Build, OpenCode, Pi) get no button: Figma only lets its approved programs connect. Use Figma from a Claude Code or Codex tab.",
+              "zh": "其他 AI（Antigravity、Grok Build、OpenCode、Pi）沒有按鈕：Figma 只開放它核准的程式。請在 Claude Code 或 Codex 的分頁用 Figma。"
+            }
+          ],
+          "see": {
+            "en": "The list under the button shows each AI and account folder as added.",
+            "zh": "按鈕下面的清單，每個 AI 和帳號資料夾都顯示已加入。"
+          },
+          "check": {
+            "id": "figma_added",
+            "on": "done",
+            "pass": [
+              "added"
+            ],
+            "states": {
+              "added": {
+                "tone": "good",
+                "text": {
+                  "en": "Figma is in all {total} places",
+                  "zh": "Figma 已在全部 {total} 個地方"
+                }
+              },
+              "partial": {
+                "tone": "warn",
+                "text": {
+                  "en": "Figma is in {have} of {total} places",
+                  "zh": "Figma 只在 {have} / {total} 個地方"
+                },
+                "hint": {
+                  "en": "Press \"Add it for me\" again for the rest. A place that says conflict is left alone.",
+                  "zh": "再按一次「幫我加進去」補其他的。寫「名稱衝突」的會被略過。"
+                }
+              },
+              "not_added": {
+                "tone": "warn",
+                "text": {
+                  "en": "Figma is not in any AI program yet",
+                  "zh": "還沒有任何 AI 程式裡有 Figma"
+                },
+                "hint": {
+                  "en": "Press \"Add it for me\".",
+                  "zh": "按「幫我加進去」。"
+                }
+              },
+              "conflict": {
+                "tone": "warn",
+                "text": {
+                  "en": "The name figma is already used for another address",
+                  "zh": "figma 這個名字已經被別的網址用了"
+                },
+                "hint": {
+                  "en": "ShellBot does not touch it. Remove or rename that entry yourself, then press the button again.",
+                  "zh": "ShellBot 不會動它。請自己刪掉或改名，再按一次按鈕。"
+                }
+              },
+              "no_cli": {
+                "tone": "bad",
+                "text": {
+                  "en": "No Claude Code, Codex or Cursor was found on this computer",
+                  "zh": "這台電腦上找不到 Claude Code、Codex 或 Cursor"
+                },
+                "hint": {
+                  "en": "Install one of them, then try again.",
+                  "zh": "先裝其中一個再試。"
+                }
+              }
+            }
+          },
+          "actions": [
+            {
+              "id": "add",
+              "label": {
+                "en": "Add it for me",
+                "zh": "幫我加進去"
+              },
+              "after": null,
+              "results": {
+                "added": {
+                  "tone": "good",
+                  "text": {
+                    "en": "Added Figma to {done} of {total} places",
+                    "zh": "已把 Figma 加進 {done} / {total} 個地方"
+                  }
+                },
+                "present": {
+                  "tone": "good",
+                  "text": {
+                    "en": "Figma was already in all {total} places; nothing changed",
+                    "zh": "{total} 個地方本來就都有 Figma，沒有改動"
+                  }
+                },
+                "partial": {
+                  "tone": "warn",
+                  "text": {
+                    "en": "Added in {done} of {total} places; see the list",
+                    "zh": "{done} / {total} 個地方加好了；其他看清單"
+                  },
+                  "hint": {
+                    "en": "A place that says conflict has another server named figma, which ShellBot leaves alone. One that says failed did not accept the change: close that AI's tabs and try again.",
+                    "zh": "寫「名稱衝突」的是那邊已有另一個叫 figma 的伺服器，ShellBot 不動它。寫「失敗」的是沒接受設定：關掉那個 AI 的分頁再試一次。"
+                  }
+                },
+                "conflict": {
+                  "tone": "warn",
+                  "text": {
+                    "en": "The name figma already points at another address",
+                    "zh": "figma 這個名字已經指向別的網址了"
+                  },
+                  "hint": {
+                    "en": "ShellBot leaves it alone. Remove or rename it yourself, then press the button again.",
+                    "zh": "ShellBot 不動它。請自己刪掉或改名，再按一次按鈕。"
+                  }
+                },
+                "failed": {
+                  "tone": "bad",
+                  "text": {
+                    "en": "No AI program accepted the change",
+                    "zh": "沒有 AI 程式接受這個設定"
+                  },
+                  "hint": {
+                    "en": "Close that AI's tabs and try again. If it keeps failing, press \"I'm stuck\".",
+                    "zh": "先關掉那個 AI 的分頁再試一次。一直失敗就按「我卡住了」。"
+                  }
+                },
+                "no_cli": {
+                  "tone": "bad",
+                  "text": {
+                    "en": "No Claude Code, Codex or Cursor was found on this computer",
+                    "zh": "這台電腦上找不到 Claude Code、Codex 或 Cursor"
+                  },
+                  "hint": {
+                    "en": "Install one of them, then try again.",
+                    "zh": "先裝其中一個再試。"
+                  }
+                }
+              }
+            }
+          ],
+          "stuck": [
+            {
+              "id": "no-cli",
+              "q": {
+                "en": "ShellBot says it found no AI program",
+                "zh": "ShellBot 說找不到 AI 程式"
+              },
+              "a": {
+                "en": "It looks for the claude, codex and cursor-agent commands. Install Claude Code or Codex (Settings → Accounts), reopen ShellBot, and press the button again.",
+                "zh": "它找的是 claude、codex、cursor-agent 這幾個指令。先裝好 Claude Code 或 Codex（設定 → 帳號），重開 ShellBot 再按一次按鈕。"
+              }
+            },
+            {
+              "id": "terminal",
+              "q": {
+                "en": "I ran `claude mcp add` myself in a terminal",
+                "zh": "我自己在終端機跑了 `claude mcp add`"
+              },
+              "a": {
+                "en": "That writes to the default Claude folder only. Claude tabs of another account use their own folder and do not see it. The button covers every folder, and it recognizes yours when the address is the same.",
+                "zh": "那只會寫到預設的 Claude 資料夾，別的帳號的 Claude 分頁用自己的資料夾，看不到。按鈕會涵蓋每個資料夾，而且網址一樣的話會認得你加的那個。"
+              }
+            },
+            {
+              "id": "exists",
+              "q": {
+                "en": "It says conflict",
+                "zh": "它說名稱衝突"
+              },
+              "a": {
+                "en": "There is already a server called figma at another address (for example Figma's plugin or an old address). ShellBot never replaces an entry it did not make. Remove it yourself (see \"How do I take it back?\" below), then press the button again.",
+                "zh": "那邊已經有一個叫 figma、但網址不同的伺服器（例如 Figma 的外掛或舊網址）。不是 ShellBot 建的項目它絕不取代。請自己刪掉（看下面「怎麼收回？」），再按一次按鈕。"
+              }
+            }
+          ]
+        },
+        {
+          "id": "f2",
+          "title": {
+            "en": "Sign in to Figma, once per account folder",
+            "zh": "登入 Figma，每個帳號資料夾各一次"
+          },
+          "how": [
+            {
+              "en": "Claude Code: open a Claude tab of the account you want, type /mcp, pick figma, choose Authenticate, and press Allow access in the browser. Every Claude account folder is signed in separately: repeat it in a tab of each account.",
+              "zh": "Claude Code：開你要用的那個帳號的 Claude 分頁，打 /mcp，選 figma，選 Authenticate，到瀏覽器按 Allow access。每個 Claude 帳號資料夾要各登入一次：每個帳號的分頁都做一遍。"
+            },
+            {
+              "en": "Codex: in a terminal run `codex mcp login figma`, then press Allow access in the browser. For an account folder ShellBot made, put CODEX_HOME=<that folder> in front. Codex may keep the sign-in in the system key store, so a second folder can already show as signed in: the list below tells.",
+              "zh": "Codex：在終端機執行 `codex mcp login figma`，再到瀏覽器按 Allow access。ShellBot 建的帳號資料夾，前面加上 CODEX_HOME=<那個資料夾>。Codex 可能把登入存在系統鑰匙圈，所以第二個資料夾可能已經顯示已登入：看下面的清單。"
+            },
+            {
+              "en": "Cursor: Cursor Settings → Tools & MCP → Connect next to figma, then Allow access. ShellBot cannot read Cursor's sign-in, so its row says \"cannot tell\".",
+              "zh": "Cursor：Cursor Settings → Tools & MCP，按 figma 旁的 Connect，再按 Allow access。ShellBot 讀不到 Cursor 的登入狀態，所以它那一列寫「看不出來」。"
+            },
+            {
+              "en": "Sign in with the Figma account whose files your bots should read. Then press \"I did it\": ShellBot looks at each place again.",
+              "zh": "用要讓 bot 讀檔案的那個 Figma 帳號登入。完成後按「我做好了」：ShellBot 會再看一次每個地方。"
+            }
+          ],
+          "see": {
+            "en": "The list below says signed in for the AIs you use.",
+            "zh": "下面的清單，你會用的 AI 都顯示已登入。"
+          },
+          "note": {
+            "en": "The sign-in is kept by each AI program itself, never by ShellBot, and it is never put in a command, a file or a log of ShellBot's. A place ShellBot cannot read (Cursor) is shown as \"cannot tell\" and does not block you.",
+            "zh": "登入由各個 AI 程式自己保管，不是 ShellBot，也不會放進 ShellBot 的任何指令、檔案或記錄。ShellBot 讀不到的地方（Cursor）會顯示「看不出來」，不會擋你。"
+          },
+          "check": {
+            "id": "figma_login",
+            "on": "enter",
+            "pass": [
+              "ok"
+            ],
+            "states": {
+              "ok": {
+                "tone": "good",
+                "text": {
+                  "en": "Signed in to Figma in {signed} of {total} places",
+                  "zh": "已在 {signed} / {total} 個地方登入 Figma"
+                }
+              },
+              "unverified": {
+                "tone": "info",
+                "text": {
+                  "en": "Added; ShellBot cannot tell whether you are signed in",
+                  "zh": "已加入；ShellBot 看不出有沒有登入"
+                },
+                "hint": {
+                  "en": "Sign in as described above, then press \"I did it\". The next step tests it for real.",
+                  "zh": "照上面登入後按「我做好了」。下一步會實際測試。"
+                }
+              },
+              "needs_login": {
+                "tone": "warn",
+                "text": {
+                  "en": "{need} place(s) still need the sign-in",
+                  "zh": "還有 {need} 個地方沒登入"
+                },
+                "hint": {
+                  "en": "Do the sign-in for the AI and account you use (see above), then press \"I did it\" again. You can skip a folder you do not use.",
+                  "zh": "替你用的 AI 和帳號登入（看上面），再按一次「我做好了」。沒在用的資料夾可以略過。"
+                }
+              },
+              "not_added": {
+                "tone": "warn",
+                "text": {
+                  "en": "Figma is not in any AI program",
+                  "zh": "沒有任何 AI 程式裡有 Figma"
+                },
+                "hint": {
+                  "en": "Go back one step and press \"Add it for me\".",
+                  "zh": "回上一步按「幫我加進去」。"
+                }
+              }
+            }
+          },
+          "stuck": [
+            {
+              "id": "no-mcp-cmd",
+              "q": {
+                "en": "/mcp does not show figma",
+                "zh": "/mcp 裡沒有 figma"
+              },
+              "a": {
+                "en": "That tab started before figma was added, or it uses another account folder. Open a new tab of the account you want and type /mcp again.",
+                "zh": "那個分頁是在加進 figma 之前開的，或它用的是別的帳號資料夾。開一個你要的帳號的新分頁，再打一次 /mcp。"
+              }
+            },
+            {
+              "id": "denied",
+              "q": {
+                "en": "The browser says the app is not allowed",
+                "zh": "瀏覽器說這個程式不被允許"
+              },
+              "a": {
+                "en": "Figma only lets its approved programs register (Claude Code, Codex, Cursor). Sign in from one of them, not from a different program.",
+                "zh": "Figma 只放行它核准的程式（Claude Code、Codex、Cursor）註冊。請從這幾個之一登入，不要用別的程式。"
+              }
+            },
+            {
+              "id": "wrong-account",
+              "q": {
+                "en": "I signed in with the wrong Figma account",
+                "zh": "我用錯 Figma 帳號登入了"
+              },
+              "a": {
+                "en": "Sign out of figma in that AI (/mcp in Claude Code, `codex mcp logout figma`), then sign in again with the right account.",
+                "zh": "在那個 AI 裡登出 figma（Claude Code 打 /mcp，Codex 用 `codex mcp logout figma`），再用對的帳號登入一次。"
+              }
+            }
+          ]
+        },
+        {
+          "id": "f3",
+          "kind": "test",
+          "title": {
+            "en": "Test that it works",
+            "zh": "測試接通"
+          },
+          "intro": {
+            "en": "ShellBot opens a temporary tab of your primary bot's AI (Claude Code or Codex) and asks it to call Figma's whoami tool once, and nothing else. It is asked not to repeat your name or email, and ShellBot does not read, keep or log what comes back. The test tab uses the account folder a new tab of that AI would use.",
+            "zh": "ShellBot 會開一個臨時分頁（用你主 bot 的 AI：Claude Code 或 Codex），請它只呼叫一次 Figma 的 whoami 工具，不做別的事。它被要求不要重複你的名字或 email，ShellBot 也不讀、不存、不記錄回來的東西。測試分頁用的是那個 AI 新分頁會用的帳號資料夾。"
+          }
+        }
+      ],
+      "test": {
+        "via": {
+          "en": "Figma server",
+          "zh": "Figma 伺服器"
+        },
+        "verdicts": {
+          "starting": {
+            "text": {
+              "en": "Opening a temporary tab…",
+              "zh": "正在開臨時分頁…"
+            },
+            "next": {
+              "en": "This usually takes about a minute. Only the test tab sees what comes back.",
+              "zh": "通常約一分鐘。回來的內容只有測試分頁看得到。"
+            }
+          },
+          "waiting_ready": {
+            "text": {
+              "en": "Waiting for the tab to be ready…",
+              "zh": "等分頁準備好…"
+            },
+            "next": {
+              "en": "This usually takes about a minute. Only the test tab sees what comes back.",
+              "zh": "通常約一分鐘。回來的內容只有測試分頁看得到。"
+            }
+          },
+          "asking": {
+            "text": {
+              "en": "Asking it to call whoami once…",
+              "zh": "請它呼叫一次 whoami…"
+            },
+            "next": {
+              "en": "This usually takes about a minute. Only the test tab sees what comes back.",
+              "zh": "通常約一分鐘。回來的內容只有測試分頁看得到。"
+            }
+          },
+          "reading": {
+            "text": {
+              "en": "Figma is answering…",
+              "zh": "Figma 回應中…"
+            },
+            "next": {
+              "en": "This usually takes about a minute. Only the test tab sees what comes back.",
+              "zh": "通常約一分鐘。回來的內容只有測試分頁看得到。"
+            }
+          },
+          "needs_allow": {
+            "text": {
+              "en": "The test tab is asking for your OK",
+              "zh": "測試分頁在等你按允許"
+            },
+            "next": {
+              "en": "It wants to use a Figma tool, and the AI asks before it does. Open the test conversation and choose Allow. The test goes on by itself afterwards.",
+              "zh": "它要用 Figma 的工具，AI 會先問你。打開測試對話，選允許。之後測試會自己繼續。"
+            }
+          },
+          "pass": {
+            "text": {
+              "en": "It works! Figma is connected.",
+              "zh": "通了！Figma 已經連結。"
+            },
+            "next": {
+              "en": "The temporary test tab called Figma's whoami once. ShellBot does not read, keep or log what came back. Tabs that were open before you connected Figma may need to be reopened to see it. Figma's tools can also change files: what a bot may do depends on what you allowed at sign-in and on the AI's own permission questions.",
+              "zh": "臨時的測試分頁呼叫了一次 Figma 的 whoami。回來的內容 ShellBot 不讀、不存、不記錄。連結之前就開著的分頁可能要重開才看得到。Figma 的工具也能改檔案：bot 能做什麼，取決於你登入時允許的範圍，和 AI 自己的權限詢問。"
+            }
+          },
+          "said_ok": {
+            "text": {
+              "en": "This one does not count. The test tab said it worked but never called a Figma tool.",
+              "zh": "這次不算：測試分頁說成功了，卻沒有叫過任何 Figma 工具。"
+            },
+            "next": {
+              "en": "Press \"Test again\". If it happens again, open the test conversation and see what the tab did.",
+              "zh": "按「重新測試」。再發生的話，打開測試對話看看分頁做了什麼。"
+            }
+          },
+          "unclear": {
+            "text": {
+              "en": "No clear answer. The test tab used Figma but did not end with a clear result line.",
+              "zh": "沒有明確的結果：測試分頁用了 Figma，但最後沒有留下明確的結果那一行。"
+            },
+            "next": {
+              "en": "Open the test conversation to see how it ended, then press \"Test again\".",
+              "zh": "打開測試對話看它怎麼結束的，再按「重新測試」。"
+            }
+          },
+          "timeout": {
+            "text": {
+              "en": "It took too long. After 3 minutes the test tab had not finished.",
+              "zh": "等太久了：3 分鐘了，測試分頁還沒做完。"
+            },
+            "next": {
+              "en": "Most likely it is waiting for you. Open the test conversation: the AI may be asking you to allow a tool, or sitting on a sign-in screen.",
+              "zh": "最可能是它在等你。打開測試對話看看：AI 可能在問你要不要允許某個工具，或停在登入畫面。"
+            }
+          },
+          "not_ready": {
+            "text": {
+              "en": "The test tab did not get ready, so nothing was asked.",
+              "zh": "測試分頁沒有準備好，所以什麼都沒問。"
+            },
+            "next": {
+              "en": "Most likely the AI is not signed in. Open the test conversation: if it shows a sign-in screen, sign in there, then test again.",
+              "zh": "最可能是 AI 還沒登入。打開測試對話：如果停在登入畫面，先在那裡登入，再測一次。"
+            }
+          },
+          "closed": {
+            "text": {
+              "en": "The test tab was closed before it finished.",
+              "zh": "測試分頁沒做完就被關掉了。"
+            },
+            "next": {
+              "en": "Press \"Test again\".",
+              "zh": "按「重新測試」。"
+            }
+          },
+          "start_failed": {
+            "text": {
+              "en": "Could not open the test tab.",
+              "zh": "開不了測試分頁。"
+            },
+            "next": {
+              "en": "Check that your primary bot's AI opens: open a tab of it yourself from the + button. If that works, press \"Test again\".",
+              "zh": "確認你主 bot 的 AI 開得起來：自己用 + 按鈕開一個分頁。開得起來的話，再按「重新測試」。"
+            }
+          },
+          "no_tools": {
+            "text": {
+              "en": "Not yet. The test tab did not find any Figma tool.",
+              "zh": "還沒通：測試分頁沒有找到任何 Figma 工具。"
+            },
+            "next": {
+              "en": "Most likely Figma was not added for the AI your primary bot runs on, or for the account folder its tabs use. Go back to the first step and press \"Add it for me\". If your primary bot runs on an AI that is not on Figma's list (Antigravity, Grok Build, OpenCode, Pi), open a Claude Code or Codex tab for Figma instead.",
+              "zh": "最可能是 Figma 沒有加進你主 bot 用的那個 AI，或沒加進它分頁用的帳號資料夾。回到第一步按「幫我加進去」。如果你主 bot 用的 AI 不在 Figma 的名單上（Antigravity、Grok Build、OpenCode、Pi），要用 Figma 就改開 Claude Code 或 Codex 的分頁。"
+            }
+          },
+          "needs_auth": {
+            "text": {
+              "en": "The test tab has to sign in to Figma first.",
+              "zh": "測試分頁得先登入 Figma。"
+            },
+            "next": {
+              "en": "Go back to the sign-in step and sign in for the AI and account the test tab uses.",
+              "zh": "回到登入那一步，替測試分頁用的 AI 和帳號登入。"
+            }
+          },
+          "failed": {
+            "text": {
+              "en": "Figma answered with an error.",
+              "zh": "Figma 回了錯誤。"
+            },
+            "next": {
+              "en": "Most likely the sign-in expired or was taken back. Go back to the sign-in step and sign in again.",
+              "zh": "最可能是登入過期或被收回了。回到登入那一步，再登入一次。"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "faq": [
+    {
+      "id": "why-not-shellbot",
+      "q": {
+        "en": "Why does ShellBot not connect Figma itself?",
+        "zh": "為什麼 ShellBot 不自己接 Figma？"
+      },
+      "a": {
+        "en": "Figma's server only accepts OAuth sign-ins and only lets the programs on its approved list register (Claude Code, Codex, Cursor and a few others). ShellBot is not on that list, and it does not pose as another program. It does not take a personal access token either: Figma's server refuses them. So the AI you use connects, and ShellBot sets that up for you and checks it.",
+        "zh": "Figma 的伺服器只收 OAuth 登入，而且只讓它核准名單上的程式註冊（Claude Code、Codex、Cursor 等）。ShellBot 不在名單上，也不會冒充別的程式。個人存取 token 它也不收。所以由你用的那個 AI 去接，ShellBot 幫你設定並檢查。"
+      }
+    },
+    {
+      "id": "which-ais",
+      "q": {
+        "en": "Which AIs can use Figma?",
+        "zh": "哪些 AI 能用 Figma？"
+      },
+      "a": {
+        "en": "Claude Code, Codex and Cursor. Antigravity, Grok Build, OpenCode and Pi are not on Figma's list, so ShellBot offers no button for them. Open a Claude Code or Codex tab when you need Figma.",
+        "zh": "Claude Code、Codex、Cursor。Antigravity、Grok Build、OpenCode、Pi 不在 Figma 的名單上，所以 ShellBot 不給它們按鈕。要用 Figma 就開 Claude Code 或 Codex 的分頁。"
+      }
+    },
+    {
+      "id": "each-account",
+      "q": {
+        "en": "Do I sign in for every account?",
+        "zh": "每個帳號都要登入嗎？"
+      },
+      "a": {
+        "en": "For Claude Code, yes: each account folder keeps its own sign-in, so sign in once in a tab of each account you use. Codex may share one sign-in through the system key store; the list on the sign-in step shows which places are signed in.",
+        "zh": "Claude Code 要：每個帳號資料夾各自保管登入，你用的每個帳號都在它的分頁登入一次。Codex 可能透過系統鑰匙圈共用一份登入；登入那一步的清單會顯示哪些地方已登入。"
+      }
+    },
+    {
+      "id": "remove",
+      "q": {
+        "en": "How do I take it back?",
+        "zh": "怎麼收回？"
+      },
+      "a": {
+        "en": "ShellBot never removes the figma entry, because it may be yours. To remove it: Claude Code `claude mcp remove figma -s user` (with CLAUDE_CONFIG_DIR=<folder> in front for an account folder), Codex `codex mcp remove figma` (CODEX_HOME=<folder> for an account folder), Cursor: delete the figma part of ~/.cursor/mcp.json. To take back Figma's permission, remove the app in your Figma account settings.",
+        "zh": "ShellBot 不會刪 figma 這個項目，因為它可能是你的。要刪：Claude Code 用 `claude mcp remove figma -s user`（帳號資料夾前面加 CLAUDE_CONFIG_DIR=<資料夾>），Codex 用 `codex mcp remove figma`（帳號資料夾加 CODEX_HOME=<資料夾>），Cursor 把 ~/.cursor/mcp.json 裡 figma 那一段刪掉。要收回 Figma 的授權，到你的 Figma 帳號設定移除這個應用程式。"
+      }
+    },
+    {
+      "id": "what-it-does",
+      "q": {
+        "en": "What can my bots do with Figma?",
+        "zh": "bot 能用 Figma 做什麼？"
+      },
+      "a": {
+        "en": "Read designs, screenshots, variables and comments, and turn a design into code. Some of Figma's tools can also create or change content in your files. What a bot may do is limited by what you allow on Figma's sign-in page and by the AI's own permission questions.",
+        "zh": "讀設計、截圖、變數和留言，把設計轉成程式。Figma 有些工具也能在你的檔案裡新增或修改內容。bot 能做什麼，受你在 Figma 登入頁允許的範圍，和 AI 自己的權限詢問限制。"
+      }
+    },
+    {
+      "id": "already-added",
+      "q": {
+        "en": "I already added Figma myself",
+        "zh": "我已經自己加過 Figma 了"
+      },
+      "a": {
+        "en": "If the name is figma and the address is the same, ShellBot recognizes it and changes nothing. If the address is different, ShellBot leaves it alone and says so.",
+        "zh": "名稱是 figma、網址一樣的話，ShellBot 會認得它，什麼都不改。網址不一樣的話它不動，只告訴你。"
+      }
+    }
+  ]
+}
