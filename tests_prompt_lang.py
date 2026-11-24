@@ -111,6 +111,17 @@ os.environ["SHELLFRAME_PROMPT_LANG"] = "zh"
 check("…both ways", bots.name_error("") == "名稱必填")
 os.environ.pop("SHELLFRAME_PROMPT_LANG", None)
 
+print("a new install's page language")
+import subprocess  # noqa: E402
+def _default_lang(forced):
+    env = dict(os.environ, SHELLFRAME_PROMPT_LANG=forced, SHELLFRAME_TESTS="1")
+    out = subprocess.run([sys.executable, "-c", "import main; print(main.DEFAULT_CONFIG['settings']['language'])"],
+                         cwd=str(Path(__file__).resolve().parent), env=env, capture_output=True, text=True, timeout=120)
+    return (out.stdout.strip().splitlines() or [""])[-1]
+check("a new install follows the system: Chinese system → 繁體中文 (asked for: colleagues should not have to find the switch)",
+      _default_lang("zh") == "zh-TW", _default_lang("zh"))
+check("…any other system → English", _default_lang("en") == "en", _default_lang("en"))
+
 print(f"\nResults: {passed} passed, {failed} failed")
 print("ALL PASS" if not failed else f"{failed} FAILED")
 sys.exit(1 if failed else 0)
