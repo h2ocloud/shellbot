@@ -278,6 +278,9 @@ DEFAULT_CONFIG = {
         # When MEMORY.md is past 80% of its size, a save also moves the detail into memory/<topic>.md
         # and leaves an index (bots.compact_step). Off = the save only asks to keep it under the cap.
         "bot_memory_compact": True,
+        # The first save of a day also asks the bot to look at its own 執掌 and skills (bots.review_step) and
+        # rewrite them from the work it was given (`sfctl bots-self --job`). Off = it never touches its 執掌.
+        "bot_role_review": True,
         # Install a pointer skill into ~/.claude/skills/shellframe/ on start, so
         # an agent in a tab discovers `sfctl skill` without being told. On by
         # default: it is a directory only ShellFrame writes, and it holds a

@@ -1409,6 +1409,8 @@ class RemoteApiMixin:
             return self._bots_list_for_sfctl()
         elif cmd == "bots_save":
             return self._bots_save_for_sfctl(args)
+        elif cmd == "bots_self":                      # sfctl bots-self: a bot's own 執掌, from its own tab (api_bot_memory)
+            return self._bots_self(args)
         elif cmd == "bots_delete":
             return self._bots_delete_for_sfctl(args)
         elif cmd == "bots_link":

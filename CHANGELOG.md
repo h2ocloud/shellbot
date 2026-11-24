@@ -6,6 +6,26 @@
 > 撰寫規範見 [`docs/changelog-guide.md`](docs/changelog-guide.md)，
 > 由 `tests_changelog_format.py` 強制檢查。
 
+## v0.64.3 (2026-11-24)
+
+### Added
+
+- **Once a day, a bot looks at its own job and skills.**
+  Requested: bots should keep their job, description and skills up to date, and a bot nobody wrote a job for should
+  come to know its place. The first memory save of a day now asks the bot to compare its job with the work it has
+  really been given. One with no job writes its first; one whose job has drifted rewrites it; the work you gave it
+  stays, and another bot's work is not taken over. Only your requests and its own work count, not what other bots,
+  webhooks or Telegram said. A procedure it keeps doing becomes one of its own skills. The job is written with
+  `sfctl bots-self --job`, which works only in the bot's own tab and changes only its job; every change is kept in
+  `role-history.md` in its folder, old and new, so you can put one back. The new job takes effect at its next wake.
+  A switch in Settings → Bots, on by default; off, only you change a bot's job.
+
+  **每天讓 bot 檢查自己的執掌與 skill。** 需求：bot 要隨時更新自己的執掌、描述和 skill，原本沒定義的 bot 也要越來越知道自己的定位。現在每天第一次
+  存記憶時，會順便請 bot 對照實際交給它的工作看自己的執掌：還沒寫的寫第一版，跟實際有落差的改寫；你交給它的範圍保留，不接手別的 bot 的事；
+  只依你的交辦和它自己做過的事，其他 bot、webhook、Telegram 說的不算。常做的固定流程寫成它自己的 skill。執掌用 `sfctl bots-self --job` 寫入，
+  只能在 bot 自己的分頁用、只改它自己的執掌；每次修改的新舊內容都記在它資料夾的 `role-history.md`，可以改回去。新執掌在下次叫醒時生效。
+  設定 → Bots 有開關，預設打開；關掉就只有你能改 bot 的執掌。
+
 ## v0.64.2 (2026-11-24)
 
 ### Fixes

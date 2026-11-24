@@ -1379,14 +1379,14 @@ class BotsApiMixin:
                 s._startup_trust_pending = False
                 if self._bots_memory_wanted(role):   # asked again after the wait; the folder is made only now
                     bots.ensure_dirs(role)
-                    compact = bots.compact_due(role, _cfg())     # MEMORY.md nearly full: this save also tidies it
-                    self._send_text_to_session(s, bots.summary_prompt(role, entry, path, bots.memory_file(role), compact=compact), submit=True)
+                    compact, review = bots.compact_due(role, _cfg()), bots.review_take(role, _cfg())   # nearly full: also tidy; first save today: also its 執掌
+                    self._send_text_to_session(s, bots.summary_prompt(role, entry, path, bots.memory_file(role), compact=compact, review=review), submit=True)
                     deadline = time.monotonic() + SUMMARY_WAIT_SEC
                     while time.monotonic() < deadline and sid in self.sessions:
                         if path.exists() and path.stat().st_size > 0:
                             written = True
                             time.sleep(3)       # MEMORY.md is usually written right after
-                            until = time.monotonic() + (bots.COMPACT_WAIT_SEC if compact else 0)   # a tidy-up into memory/ takes longer: let the turn end
+                            until = time.monotonic() + (bots.COMPACT_WAIT_SEC if compact or review else 0)   # a tidy-up or a 執掌 look takes longer: let the turn end
                             while self._bots_busy(sid) and time.monotonic() < until and sid in self.sessions:
                                 time.sleep(1.5)
                             break

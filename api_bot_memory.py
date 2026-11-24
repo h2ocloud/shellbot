@@ -2,6 +2,7 @@
 
 js_api (the bot editor's Skills section, web/bots.js): bots_own_skills, bots_skill_new,
         bots_skill_copy, bots_skill_delete, bots_skill_open.
+sfctl: bots-self (_bots_self: a bot reads, and rewrites, its own 執掌).
 Hook main.py calls once the window is up: _bot_memory_start (the thread that asks an open bot to
 save its memory after a quiet spell).
 
@@ -74,6 +75,52 @@ class BotMemoryApiMixin:
         except Exception as e:
             return json.dumps({"success": False, "message": str(e)}, ensure_ascii=False)
         return json.dumps({"success": True, "message": str(path)}, ensure_ascii=False)
+
+    # ── a bot's own 執掌, from its own tab (`sfctl bots-self`) ────────────
+    def _bots_self(self, args: dict) -> dict:
+        """`sfctl bots-self [--job "…"]`, run in a bot's own tab ($SF_SID): its name, 執掌 and skills; with
+        --job its 執掌 is rewritten (only that: not its name, CLI or face, and no other bot's), the old one
+        added to role-history.md (bots.log_job_change). The once-a-day look of bots.review_step uses it."""
+        if not self._bots_enabled():
+            return {"success": False, "message": _("Bots are experimental: turn them on in Settings first (experimental_bots)",
+                                                  "Bots 是實驗功能，請先在設定裡打開（experimental_bots）")}
+        sid, cfg = str(args.get("from_sid") or "").strip(), main.load_config()
+        role = self._bots_role_of(sid, cfg) if sid in self.sessions else ""
+        if not role:
+            return {"success": False, "code": "not_bot", "message": _(
+                "Only a bot can do this, in its own tab", "只有 bot 能用，而且要在它自己的分頁裡跑")}
+        entry = (cfg.get("agent_roster") or {}).get(role) or {}
+        old = " ".join(str(entry.get("responsibility") or "").split())
+        if args.get("job") is None:
+            own = [k["name"] for k in bots.own_skill_catalog(role)]
+            lines = [_("Bot: ", "Bot：") + bots.label_of(role, entry),
+                     _("Job: ", "執掌：") + (old or _("(not written yet)", "（還沒寫）")),
+                     _("Shared skills: ", "共用 skill：") + ("、".join(bots.normalize_bot(entry.get("bot") or {}).get("skills") or []) or "-"),
+                     _("Its own skills: ", "自己的 skill：") + ("、".join(own) or "-") + f"  ({bots.skills_dir(role)})",
+                     _("Changes so far: ", "改過的紀錄：") + str(bots.role_history(role))]
+            return {"success": True, "message": "\n".join(lines), "role": role, "job": old, "own_skills": own}
+        new = " ".join(str(args.get("job") or "").split())
+        err = bots.job_error(new)
+        if err:
+            return {"success": False, "code": "bad_job", "message": err}
+        if new == old:
+            return {"success": True, "changed": False, "message": _("Same as now: nothing changed", "跟現在一樣，沒有改")}
+
+        def _mut(c):
+            e = (c.get("agent_roster") or {}).get(role)
+            if not isinstance(e, dict) or not bots.is_bot(e):
+                raise ValueError(_(f'"{role}" is no longer a bot', f"「{role}」已經不是 bot"))
+            e["responsibility"] = new
+        try:
+            main.update_config(_mut)
+        except ValueError as e:
+            return {"success": False, "message": str(e)}
+        bots.log_job_change(role, old, new, by=sid)
+        _dlog("bots", f"bots-self sid={sid} role={role!r} job {len(old)}->{len(new)} chars")
+        self._bots_notify_ui()
+        return {"success": True, "changed": True, "message": _(
+            f"Job of {bots.label_of(role, entry)} updated; the old one is in {bots.role_history(role)}. Your next wake carries it.",
+            f"{bots.label_of(role, entry)} 的執掌已更新，舊的記在 {bots.role_history(role)}；下次叫醒時生效。")}
 
     # ── asking an open bot to save its memory ───────────────────────────
     def _bot_memory_start(self):

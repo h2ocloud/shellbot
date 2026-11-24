@@ -1616,6 +1616,12 @@
             'MEMORY.md 超過 80% 時，存記憶那一輪順便把細節搬到 memory/ 底下的主題檔，MEMORY.md 只留重點和索引。')}</div></div>
         <div class="sx-ctl"><button class="toggle-switch" id="setting-bot-memory-compact"></button></div>
       </div>
+      <div class="sx-row" id="sfb-rolereview" style="display:none">
+        <div class="sx-txt"><div class="sx-label">${t('Once a day, a bot looks at its own job and skills', '每天讓 Bot 檢查自己的執掌與 skill')}</div>
+          <div class="sx-hint">${t('The first memory save of a day also asks the bot to compare its job with the work it has really been given: one with no job writes its first, one that has drifted rewrites it (the old one is kept in role-history.md in its folder), and a procedure it keeps doing becomes one of its own skills. It never takes over another bot’s work. Off: only you change a bot’s job.',
+            '每天第一次存記憶時，順便請 Bot 對照實際交給它的工作看自己的執掌：還沒寫的寫第一版，跟實際有落差的改寫（舊的記在它資料夾的 role-history.md），常做的固定流程寫成它自己的 skill。不會接手別的 Bot 的事。關掉：執掌只由你改。')}</div></div>
+        <div class="sx-ctl"><button class="toggle-switch" id="setting-bot-role-review"></button></div>
+      </div>
       <div class="sx-row">
         <div class="sx-txt"><div class="sx-label">${t('A2A: bots message each other by name (experimental)', 'A2A：bot 之間用名字互相傳話（實驗）')}</div>
           <div class="sx-hint">${t('The AI in a tab can send work or a note to another bot by its name (sfctl a2a-send, [[SF:TO:name|…]]), here or on a paired computer, and hand off a task that reports back. Off by default.',
@@ -1660,6 +1666,8 @@
     });
     const memCompact = panel.querySelector('#setting-bot-memory-compact');
     memCompact.addEventListener('click', () => saveSettings({ bot_memory_compact: !memCompact.classList.contains('on') }));
+    const roleReview = panel.querySelector('#setting-bot-role-review');
+    roleReview.addEventListener('click', () => saveSettings({ bot_role_review: !roleReview.classList.contains('on') }));
     const a2a = panel.querySelector('#setting-experimental-a2a');
     a2a.addEventListener('click', async () => {
       const cfg = host() && host().cfg();
@@ -1695,6 +1703,12 @@
       cBox.style.display = enabled ? '' : 'none';
       const set = (cfg && cfg.settings) || {};
       document.getElementById('setting-bot-memory-compact').classList.toggle('on', set.bot_memory_compact !== false);   // on unless turned off (bots.compact_enabled)
+    }
+    const rBox = document.getElementById('sfb-rolereview');
+    if (rBox) {
+      rBox.style.display = enabled ? '' : 'none';
+      const set = (cfg && cfg.settings) || {};
+      document.getElementById('setting-bot-role-review').classList.toggle('on', set.bot_role_review !== false);   // on unless turned off (bots.review_enabled)
     }
     const root = document.getElementById('sfb-settings-root');
     if (root) root.textContent = st.memory_root ? t('Memory folder: ', '記憶資料夾：') + st.memory_root : '';
