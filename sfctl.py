@@ -961,6 +961,9 @@ def main():
     p_bsave.add_argument("--bind", metavar="SID", default="",
                          help="Make this open tab the bot's tab, as \"Make it a bot…\" in its settings does: "
                               "the conversation goes on, the tab takes the bot's name")
+    p_bself = sub.add_parser("bots-self", help="In a bot's own tab: its name, job (執掌) and skills; --job rewrites "
+                                               "its job (only its own; the old one is kept in role-history.md)")
+    p_bself.add_argument("--job", default=None, help="The new job: first sentence stands alone (120 characters), at most 600")
     p_bkeep = sub.add_parser("bots-keep", help="Keep a temporary bot: the AI tab becomes a bot with its face, "
                                                "a memory folder and a name (plan A)")
     p_bkeep.add_argument("sid", help="The tab: its sid or its title")
@@ -1248,6 +1251,8 @@ def main():
         return tg_push.cli(args, _rpc, _app_running)
     elif args.cmd == "bots-save":
         _print_result(_rpc("bots_save", {"role": args.role, "data": args.data, "bind": args.bind}, timeout=15))
+    elif args.cmd == "bots-self":
+        _print_result(_rpc("bots_self", {"job": args.job, "from_sid": os.environ.get("SF_SID", "")}, timeout=15))
     elif args.cmd == "bots-keep":
         _print_result(_rpc("bots_keep", {"sid": args.sid, "name": args.name}, timeout=15))
     elif args.cmd == "bots-set":

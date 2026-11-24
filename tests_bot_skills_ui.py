@@ -185,6 +185,26 @@ def run(browser, engine):
     page.wait_for_timeout(150)
     check("compact: …and on again", page.evaluate("window.__cfg.settings.bot_memory_compact") is True
           and page.locator("#setting-bot-memory-compact.on").count() == 1)
+    # the once-a-day look at its own job (bots.review_enabled): on unless turned off, under the tidy-up one
+    text = page.inner_text("#sfb-rolereview")
+    check("role review: the switch is there, on by default, and says what it does",
+          page.locator("#setting-bot-role-review.on").count() == 1 and "每天讓 Bot 檢查自己的執掌與 skill" in text
+          and "還沒寫的寫第一版" in text and "role-history.md" in text and "不會接手別的 Bot 的事" in text, text)
+    check("role review: sits right under the tidy-up switch",
+          page.evaluate("document.getElementById('sfb-memcompact').nextElementSibling.id") == "sfb-rolereview")
+    page.locator("#sfb-rolereview").scroll_into_view_if_needed()
+    if engine == "webkit":
+        page.locator("#sfb-memsave").locator("xpath=..").screenshot(path=str(SHOTS / "bots-role-review-setting.png"))
+    page.click("#setting-bot-role-review")
+    page.wait_for_timeout(150)
+    saved = page.evaluate("window.__cfg.settings")
+    check("role review: off is saved with the other settings", saved.get("bot_role_review") is False
+          and saved.get("bot_memory_compact") is True and saved.get("experimental_bots") is True
+          and page.locator("#setting-bot-role-review.on").count() == 0, saved)
+    page.click("#setting-bot-role-review")
+    page.wait_for_timeout(150)
+    check("role review: …and on again", page.evaluate("window.__cfg.settings.bot_role_review") is True
+          and page.locator("#setting-bot-role-review.on").count() == 1)
     check("no page errors", not errors, errors)
     page.close()
 

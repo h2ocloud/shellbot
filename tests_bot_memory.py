@@ -509,8 +509,9 @@ check("…and has it, after MEMORY.md, when there are", f"Memory detail files in
       and brief_b.index("MEMORY.md") < brief_b.index("Memory detail files"), brief_b[:600])
 (TD / "deploy.md").unlink()
 src = (HERE / "api_bots.py").read_text(encoding="utf-8")
-check("the close flow asks with compact=bots.compact_due(role, _cfg()) and waits for the turn to end when it did",
-      "compact = bots.compact_due(role, _cfg())" in src and "compact=compact" in src and "bots.COMPACT_WAIT_SEC if compact else 0" in src)
+check("the close flow asks with compact=bots.compact_due(role, _cfg()) and waits for the turn to end when it did (or looked at its job)",
+      "compact, review = bots.compact_due(role, _cfg()), bots.review_take(role, _cfg())" in src and "compact=compact" in src
+      and "bots.COMPACT_WAIT_SEC if compact or review else 0" in src)
 check("tick passes its config on (start(api, sid, role, entry, cfg))", "res = start(api, sid, role, entry, cfg)" in (HERE / "bot_memory.py").read_text(encoding="utf-8"))
 
 print(f"\n{passed} passed, {failed} failed")

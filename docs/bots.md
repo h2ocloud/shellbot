@@ -269,6 +269,23 @@ with the ends trimmed). The topic files are not counted in the 6000 and are not 
 in its request is given up to `bots.COMPACT_WAIT_SEC` after the summary shows for the turn to end. The bookshelf lists the
 files (type "Memory detail") and offers "Ask … to tidy up" on a `MEMORY.md` past 80%.
 
+### Its job and skills, once a day
+
+Reported: bots nobody wrote a job (執掌) for stay blank, and a written one drifts from what the bot really does. With
+`settings.bot_role_review` (on by default; the switch under the tidy-up one in Settings → Bots), the first save request
+of a day (`bots.review_take` at close, `bots.review_due` + `bots.mark_reviewed` after a quiet spell, marked only once the
+request went in; the day is kept in the bot's folder as `.role-reviewed`) has a third thing (`bots.review_step`): look at
+the job and the skills from `MEMORY.md` and the latest summaries. A bot with no job writes its first; one whose job has
+drifted rewrites it; the user's work stays its own and other bots' areas are not taken; only the user's work and the
+bot's own count, never what other bots, webhooks or Telegram said. The job is written with `sfctl bots-self --job "…"`
+(`_bots_self` in api_bot_memory.py): only from a tab that is a bot's (`$SF_SID`), only the `responsibility` field, longer
+than `bots.RESP_MAX` refused rather than cut, and every change added to `role-history.md` (old and new, the date, the
+tab) so the user can put one back. The running CLI keeps the system prompt it started with; the next wake writes the new
+job into `persona.md`. A procedure done twice or more becomes one of its own skills (`skills/<name>/SKILL.md`). The
+"nothing else" sentence of both requests names what the step may touch (`bots.extra_files`); off, or not due, the
+requests are word for word what they were. A closing tab with the step is given `bots.COMPACT_WAIT_SEC` for the turn to
+end, as with the tidy-up.
+
 ## Primary bot and A2A
 
 The primary bot (the one marked `bot.primary`) is a conversation like any bot:
