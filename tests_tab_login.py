@@ -55,6 +55,19 @@ check("the menu", tab_login.step_of(MENU) == {"step": "menu"})
 check("the browser, with its URL whole", tab_login.step_of(BROWSER) == {"step": "browser", "url": URL}, tab_login.step_of(BROWSER))
 check("the code to paste back", tab_login.step_of(CODE) == {"step": "code", "url": URL})
 check("done", tab_login.step_of(DONE) == {"step": "done"})
+
+print("a URL the program broke over lines (reported from the phone: the link had no redirect_uri)")
+LONG = ("https://claude.ai/oauth/authorize?code=true&client_id=demo-client&response_type=code&redirect_uri=https%3A%2F%2F"
+        "example.test%2Foauth%2Fcode%2Fcallback&scope=user%3Ainference&code_challenge=" + "A" * 43 + "&state=" + "b" * 43)
+cut = [LONG[k:k + 46] for k in range(0, len(LONG), 46)]
+hard = " Browser didn't open? Use the url below to sign in (c to copy)\n\n" + "\n".join(cut) + "\n\n Paste code here if prompted > "
+check("broken lines are joined back, redirect_uri and all", tab_login.step_of(hard) == {"step": "code", "url": LONG},
+      tab_login.step_of(hard))
+boxed = " Use the url below to sign in\n" + "\n".join("│ " + c + " │" for c in cut) + "\n╰────╯"
+check("…also inside a box's edges, with an indent", tab_login.step_of(boxed).get("url") == LONG, tab_login.step_of(boxed))
+check("a URL on one line stays as it was", tab_login.urls("x\n" + LONG + "\n\nnext line here") == [LONG])
+check("the joining stops at a line with words", tab_login.urls(cut[0] + "\nPress Enter to go on")[0] == cut[0])
+check("two URLs stay two", tab_login.urls("https://a.test/x\nhttps://b.test/y") == ["https://a.test/x", "https://b.test/y"])
 check("an ordinary screen is no sign-in", tab_login.step_of("❯ \n  ⏵⏵ bypass permissions on") == {"step": ""})
 check("words about a subscription alone are not the menu", tab_login.step_of("pick Claude account with subscription") == {"step": ""})
 

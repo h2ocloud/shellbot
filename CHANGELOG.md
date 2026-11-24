@@ -46,6 +46,17 @@
 
 ### Fixes
 
+- **The sign-in link on the phone keeps its whole address.**
+  Reported from the phone: the sign-in card's link opened a page saying the redirect address was missing. The card
+  reads the link from the tab's screen; lines the terminal wrapped were already joined, but a program that breaks a
+  long line itself leaves real line breaks, and only the first piece was taken. After a line ending in a link, the
+  next lines made only of a link's characters (an indent or a box's edge taken off) are now read as the rest of it.
+  Covered by `tests_tab_login.py`.
+
+  **手機上的登入連結保留完整網址。** 回報（手機）：登入卡片的連結打開後，頁面說缺少轉導參數。卡片的連結是從分頁畫面讀的；終端機自己折的行
+  原本就會接回去，但程式自己把長行斷開時是真的換行，只讀到了第一段。現在讀到以連結結尾的一行後，接下來只由網址字元組成的行（去掉縮排或框線）
+  會當成它的後半段接上。由 `tests_tab_login.py` 守著。
+
 - **The usage pill and the accounts panel agree.**
   Reported with screenshots: the panel showed 4% for five hours and 92% for the week, queried a minute before, while
   the pill at the top still showed an older 0% and 85% marked as stale, and the panel said the current session was not

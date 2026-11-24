@@ -44,15 +44,53 @@ def screen(api, sid: str) -> str:
         return ""
 
 
+# A URL's characters (RFC 3986), for the pieces of a URL the program itself broke over lines.
+_URL_PIECE_RE = re.compile(r"[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+,;=%]+")
+_EDGE = " \t│┃|╎┆"
+
+
+def urls(text: str) -> list:
+    """The URLs on a screen, each whole. tmux's -J joins the lines the terminal wrapped, but a program that
+    breaks a long line itself (Claude Code draws with Ink) leaves real line breaks: reported from the phone, the
+    sign-in link opened without its redirect_uri. After a line that ends in a URL, the next lines that are nothing
+    but URL characters (once the indent and a box's edge are taken off) are the rest of it."""
+    out = []
+    lines = str(text or "").split("\n")
+    i = 0
+    while i < len(lines):
+        line = lines[i].rstrip(_EDGE)
+        found = list(URL_RE.finditer(line))
+        if not found:
+            i += 1
+            continue
+        for m in found[:-1]:
+            out.append(m.group(0))
+        last = found[-1]
+        url = last.group(0)
+        if last.end() == len(line):               # it reaches the end of the line: it may go on below
+            j = i + 1
+            while j < len(lines):
+                piece = lines[j].strip(_EDGE)
+                if not piece or not _URL_PIECE_RE.fullmatch(piece) or piece.startswith("https://"):
+                    break
+                url += piece
+                j += 1
+            i = j
+        else:
+            i += 1
+        out.append(url)
+    return out
+
+
 def step_of(text: str) -> dict:
     """{"step", "url"?} for a screen; step '' when no sign-in is on it."""
     if "Login successful" in text:
         return {"step": "done"}
     if "Paste code here" in text:
-        m = URL_RE.findall(text)
+        m = urls(text)
         return {"step": "code", **({"url": m[-1]} if m else {})}
     if "Use the url below to sign in" in text or "Opening browser to authorize" in text or "Browser didn't open" in text:
-        m = URL_RE.findall(text)
+        m = urls(text)
         return {"step": "browser", **({"url": m[-1]} if m else {})}
     if "Claude account with subscription" in text and "Anthropic Console account" in text:
         return {"step": "menu"}
