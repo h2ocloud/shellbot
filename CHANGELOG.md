@@ -6,6 +6,52 @@
 > 撰寫規範見 [`docs/changelog-guide.md`](docs/changelog-guide.md)，
 > 由 `tests_changelog_format.py` 強制檢查。
 
+## v0.64.2 (2026-11-24)
+
+### Fixes
+
+- **A message sent while the bot works no longer stays "Sending…".**
+  Reported with a screenshot: messages typed while a Claude Code tab was working had gone in, yet the chat view showed
+  some of them as a Python list (`[{'type': 'text', …}]`) and left them grey with "Sending…". A message taken in
+  mid-turn is recorded as blocks when pictures come with it, and ShellBot turned the blocks into text with str(); it now
+  reads them like any message. The bubble also leaves once the record has the same words, whatever the line breaks,
+  spaces or `[Image #n]` marks. For Codex, a message given as blocks is read the same way, and Codex's own copy of what
+  it was sent is no longer shown as the bot's reply.
+
+  **bot 工作中送出的訊息不再一直「送出中」。** 回報（附截圖）：Claude Code 分頁工作時送出的訊息其實已經送進去了，對話畫面卻有幾則顯示成
+  Python 清單（`[{'type': 'text', …}]`），而且一直灰灰的「送出中」。原因是帶圖片、在回合中途收進去的訊息在紀錄裡是一組區塊，ShellBot 用
+  str() 轉成文字；現在和一般訊息一樣讀。泡泡也改成紀錄裡有同樣的字就拿掉，換行、空白、`[Image #n]` 標記不同都不影響。Codex 那邊，區塊形式的
+  訊息一樣這樣讀，而 Codex 自己留的那份「送進去的內容」不再被畫成 bot 的回覆。
+
+- **Sticky notes stay sharp when you point at them.**
+  Reported: a hovered note grew a little and its text went blurred. It now lifts with a deeper shadow and keeps its size,
+  so the text is drawn sharp.
+
+  **滑鼠移到便利貼上，字不再變模糊。** 回報：便利貼被指到時會稍微放大，字跟著糊掉。現在改成往上浮、影子加深，大小不變，字維持清楚。
+
+- **The board's title is not squeezed by many paired computers.**
+  Reported: with five paired computers, the 這台 / 隔壁 buttons took the whole top of the board and 任務看板 was
+  squeezed to one character a line. The title keeps its width and the buttons wrap into rows beside it.
+
+  **配對很多台電腦時，看板標題不再被擠扁。** 回報：配了五台電腦時，「這台／隔壁」的按鈕佔滿看板上方，「任務看板」被擠成一個字一行。
+  現在標題保持原寬，按鈕在旁邊換行排列。
+
+- **English everywhere the language is switched.**
+  Reported: in English, the sidebar still said 辦公室 / 看板, the foot 導覽 / 給 AI, and the board 這台 / 隔壁. Switching
+  the language in Settings now redraws them at once, and the board's switcher and a paired computer's board title are
+  translated.
+
+  **切換語言後，每個地方都跟著換。** 回報：英文介面裡，側欄還是「辦公室／看板」，底部還是「導覽／給 AI」，看板還是「這台／隔壁」。
+  現在在設定裡切換語言會馬上重畫這些字，看板的電腦切換鈕和隔壁電腦的白板標題也都有英文。
+
+### Changes
+
+- **A new install speaks the system's language.**
+  Asked for: colleagues should not have to look for how to switch to Chinese. A new install now starts in Traditional
+  Chinese on a Chinese system and in English elsewhere. A language already chosen in Settings is kept.
+
+  **新安裝時，介面語言跟著系統。** 需求：同仁不用再找怎麼切回中文。新安裝時，系統是中文就用繁體中文，其他系統用英文；已經在設定裡選過的語言不變。
+
 ## v0.64.1 (2026-11-24)
 
 ### Added
