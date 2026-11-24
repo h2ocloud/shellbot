@@ -313,7 +313,8 @@ def run(browser, base, engine):
     page.wait_for_timeout(600)
     pick(page, fr, "記憶 · MEMORY.md")
     acts = fr.evaluate("[...document.querySelectorAll('#ooActs button')].map(b => ({t: b.textContent, d: b.disabled}))")
-    check("the engineer has a tab: 「請 示範工程師 更新」 is enabled next to 用編輯器打開", acts == [{"t": "用編輯器打開", "d": False}, {"t": "請 示範工程師 更新", "d": False}], acts)
+    check("the engineer has a tab: 「請 示範工程師 更新」 is enabled next to 用編輯器打開, and (its memory is over 80 %) 「請 示範工程師 整理」",
+          acts == [{"t": "用編輯器打開", "d": False}, {"t": "請 示範工程師 更新", "d": False}, {"t": "請 示範工程師 整理", "d": False}], acts)
     before = page.evaluate("window.__sends.length")
     fr.click('#ooActs [data-action="ask_update"]')
     page.wait_for_timeout(600)
@@ -322,6 +323,13 @@ def run(browser, base, engine):
           len(sends) == before + 1 and sends[-1]["sid"] == "s701" and sends[-1]["clear"] is False
           and sends[-1]["text"].startswith("（書櫃）請更新你的 MEMORY.md：") and "\n" not in sends[-1]["text"], sends[-1:])
     check("the popup says it was sent", "已傳給示範工程師" in fr.evaluate("document.getElementById('ooMsg').textContent"), fr.evaluate("document.getElementById('ooMsg').textContent"))
+    before = page.evaluate("window.__sends.length")
+    fr.click('#ooActs [data-action="compact"]')
+    page.wait_for_timeout(600)
+    sends = page.evaluate("window.__sends")
+    check("the tidy-up button sends one line to the same tab: from the bookshelf, only the tidy-up, with the step",
+          len(sends) == before + 1 and sends[-1]["sid"] == "s701" and sends[-1]["clear"] is False and "\n" not in sends[-1]["text"]
+          and sends[-1]["text"].startswith("（書櫃）這是書櫃的要求，只做整理 MEMORY.md") and "3,600 字（60%）以內" in sends[-1]["text"], sends[-1:])
     fr.click('#ooActs [data-action="open_editor"]')
     page.wait_for_timeout(500)
     check("the editor: the backend's opener got the memory file's path, the page never saw it", OPENED and OPENED[-1].endswith("eng/MEMORY.md")

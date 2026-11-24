@@ -188,6 +188,66 @@ check("a shared skill has nobody to ask; a session summary neither",
       and sh.action(ctx(), next(i for i in titles if i.startswith("sess:")), "ask_update", {})["ok"] is False)
 check("own skill: ask its bot", sh.action(ctx(), "skill:own.chief:own-skill", "ask_update", {})["tell"]["to"] == "b:chief")
 
+print("memory detail files (memory/<topic>.md) and the tidy-up button")
+write(bots.topics_dir("eng") / "release-steps.md", "# Release steps\n\n1. tag it\n2. ship the topicneedle\n")
+write(bots.topics_dir("eng") / "notes.md", "plain first line without a heading\n")
+write(bots.topics_dir("eng") / ".hidden.md", "# hidden\n")
+write(bots.topics_dir("eng") / "data.txt", "not markdown\n")
+write(bots.topics_dir("eng") / "sub" / "deeper.md", "# not directly inside memory/\n")
+write(TMP / "elsewhere.md", "# a file outside the bot's folder\n")
+(bots.topics_dir("eng") / "link.md").symlink_to(TMP / "elsewhere.md")
+lst = sh.list(ctx())
+titles = {i["id"]: i for i in lst["items"]}
+topics = sorted(i for i in titles if i.startswith("topic:"))
+check("the .md files directly inside memory/ are on the shelf, under their bot (no hidden file, no .txt, no sub folder, no link out)",
+      topics == ["topic:eng:notes.md", "topic:eng:release-steps.md"] and all(titles[i]["group"] == "eng" for i in topics), topics)
+check("their type is memory_topic, named in the bot's language, and the type filter offers it",
+      titles["topic:eng:notes.md"]["type"] == "memory_topic" and titles["topic:eng:notes.md"]["title"] == "Memory detail · notes.md"
+      and ["memory_topic", {"en": "Memory detail", "zh": "記憶細節"}]
+      in [list(o) for o in shelf.DECLARATION["filters"][1]["options"]]
+      and {i["id"] for i in sh.list(ctx(), filters={"type": "memory_topic"})["items"]} == set(topics))
+check("…in Chinese: 記憶細節 · notes.md", next(i for i in sh.list(ctx("zh"))["items"] if i["id"] == "topic:eng:notes.md")["title"] == "記憶細節 · notes.md")
+check("they can be searched by text", [i["id"] for i in sh.list(ctx(), query="topicneedle")["items"]] == ["topic:eng:release-steps.md"])
+check("they are not counted in the 6,000 characters or the red number (eng stays at exactly 80 %)",
+      sh.summary(ctx()) == {"badge": 2} and titles["mem:eng"]["size"] == 4800 and not titles["mem:eng"]["tags"])
+it = sh.item(ctx(), "topic:eng:release-steps.md")
+check("one opens with its text, and can be opened in the editor or the bot asked to update it (no tidy-up button)",
+      "topicneedle" in it["markdown"] and it["actions"] == ["open_editor", "ask_update"] and it["owner_key"] == "b:eng", it)
+check("…open in the editor: the file's own path", sh.action(ctx(), "topic:eng:notes.md", "open_editor", {})["open"] == str(bots.topics_dir("eng") / "notes.md"))
+a = sh.action(ctx(), "topic:eng:notes.md", "ask_update", {})
+check("…ask the bot: one line to its key, naming the file", a["tell"]["to"] == "b:eng" and "memory/notes.md" in a["tell"]["text"]
+      and "\n" not in a["tell"]["text"], a)
+check("a topic id that is not on the shelf gets nothing", sh.item(ctx(), "topic:eng:../../secret.md") == {} and sh.item(ctx(), "topic:eng:link.md") == {}
+      and sh.item(ctx(), "topic:eng:.hidden.md") == {})
+
+check("the tidy-up button is declared, and needs the bot's tab like ask-to-update",
+      any(a["id"] == "compact" and a.get("needs_tab") and not a.get("primary") for a in shelf.DECLARATION["actions"]))
+check("the 80 % line is the one the save request uses (one constant, one count)",
+      shelf.NEAR_FULL == bots.MEMORY_NEAR_FULL == 0.8 and shelf._chars is bots.memory_chars)
+check("memory at exactly 80 %: no tidy-up button, and asking is refused",
+      sh.item(ctx(), "mem:eng")["actions"] == ["open_editor", "ask_update"]
+      and sh.action(ctx(), "mem:eng", "compact", {})["ok"] is False)
+it = sh.item(ctx(), "mem:local")
+check("memory over 80 %: the tidy-up button is there, after the others", it["actions"] == ["open_editor", "ask_update", "compact"], it["actions"])
+clean = oo.clean_item(it, shelf.DECLARATION["actions"])
+check("…and survives the host's cleaning", clean["actions"] == ["open_editor", "ask_update", "compact"], clean["actions"])
+a = sh.action(ctx(), "mem:local", "compact", {})
+step = bots.compact_step("local", "en")
+check("it asks the bot (to its key), says it comes from the bookshelf and is only the tidy-up, then gives the very step the save request has",
+      a["ok"] and a["tell"]["to"] == "b:local" and a["tell"]["text"].startswith("(Bookshelf) This request comes from the bookshelf")
+      and "only about tidying MEMORY.md" in a["tell"]["text"] and "do not write a session summary" in a["tell"]["text"]
+      and a["tell"]["text"].endswith(" " + step) and "\n" not in a["tell"]["text"] and "4,801/6,000 characters" in step and "3,600 characters (60%)" in step, a)
+prompt_lang("zh")
+a = sh.action(ctx("zh"), "mem:local", "compact", {})
+check("…in Chinese", a["tell"]["text"].startswith("（書櫃）這是書櫃的要求，只做整理 MEMORY.md") and a["tell"]["text"].endswith(bots.compact_step("local", "zh")) and "\n" not in a["tell"]["text"]
+      and "4,801／6,000 字" in a["tell"]["text"], a)
+prompt_lang("en")
+check("the button's labels, both languages", [a["label"] for a in shelf.DECLARATION["actions"] if a["id"] == "compact"] == [{"en": "Ask {owner} to tidy up", "zh": "請 {owner} 整理"}])
+check("a session summary, a skill and a topic file have no tidy-up",
+      sh.action(ctx(), next(i for i in titles if i.startswith("sess:")), "compact", {})["ok"] is False
+      and sh.action(ctx(), "skill:shared:demo-release", "compact", {})["ok"] is False
+      and sh.action(ctx(), "topic:eng:notes.md", "compact", {})["ok"] is False)
+
 # ── the cabinet ──────────────────────────────────────────────────────────────
 print("the cabinet: list")
 pe = staff.Personnel()

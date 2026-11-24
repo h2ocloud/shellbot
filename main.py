@@ -275,6 +275,9 @@ DEFAULT_CONFIG = {
         # the bot's own quota each time. Off = only when its tab closes. Idle minutes: 5 to 1440.
         "bot_memory_autosave": True,
         "bot_memory_idle_min": 45,
+        # When MEMORY.md is past 80% of its size, a save also moves the detail into memory/<topic>.md
+        # and leaves an index (bots.compact_step). Off = the save only asks to keep it under the cap.
+        "bot_memory_compact": True,
         # Install a pointer skill into ~/.claude/skills/shellframe/ on start, so
         # an agent in a tab discovers `sfctl skill` without being told. On by
         # default: it is a directory only ShellFrame writes, and it holds a

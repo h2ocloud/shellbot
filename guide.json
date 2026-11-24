@@ -30,6 +30,7 @@
   },
   "no_guide": {},
   "added_without_guide": {
+    "0.64.1": "Tidying a nearly full MEMORY.md is one more switch in the Bots rows of Settings, next to the memory-saving one; the bots entry points there and now says it. The memory/ topic files and the bookshelf's tidy-up button live inside the office (an iframe the tour cannot point into); the bookshelf entry says it.",
     "0.64.0": "GitHub and Figma are more rows on the Connect page, which the connect entry points to; the usage pill and the accounts panel now show the same numbers, nothing new on the screen; `sfctl call` is a command for the AI tabs.",
     "0.63.1": "The paired computer's own presets appear as the buttons of the existing New session dialog for that computer; no new place on the screen to point at.",
     "0.63.0": "The temperatures are new lines on the ops TVs and a section of the ops detail window, inside the office (an iframe the tour cannot point into); the office-ops entry covers the ops board.",
@@ -104,8 +105,8 @@
         "zh": "Bot"
       },
       "body": {
-        "en": "A tab's light becomes a face: idle, working, a question for you, stuck, done. A tab can become a bot that wakes with its job, skills and memory, and writes its memory before it closes.",
-        "zh": "分頁的燈號變成 bot 的臉：發呆、運作中、有問題要問你、卡住、完成。分頁可以開成 bot，叫醒時帶著執掌、skill 和記憶，關閉前先把記憶寫好。"
+        "en": "A tab's light becomes a face: idle, working, a question for you, stuck, done. A tab can become a bot that wakes with its job, skills and memory, and writes its memory before it closes. A nearly full memory is tidied into topic files (a switch here).",
+        "zh": "分頁的燈號變成 bot 的臉：發呆、運作中、有問題要問你、卡住、完成。分頁可以開成 bot，叫醒時帶著執掌、skill 和記憶，關閉前先把記憶寫好。記憶快滿時，存記憶那一輪也會把細節搬到主題檔（設定裡有開關）。"
       }
     },
     {
@@ -340,8 +341,8 @@
         "zh": "書櫃"
       },
       "body": {
-        "en": "In the office, the bookshelf on the lobby wall (or the 書櫃 button at the bottom right) shows each bot's memory, skills and session summaries, and the shared skills. Read only; the red number is bots whose memory is almost full.",
-        "zh": "辦公室大廳牆邊的書櫃（或右下角的「書櫃」鈕）收著每個 bot 的記憶、技能、對話摘要，和共用技能。只看不改；紅色數字是記憶快滿的 bot 數。"
+        "en": "In the office, the bookshelf on the lobby wall (or the 書櫃 button at the bottom right) shows each bot's memory and detail files, skills and session summaries, and the shared skills. Read only; the red number is bots with memory almost full: ask them to tidy it.",
+        "zh": "辦公室大廳牆邊的書櫃（或右下角的「書櫃」鈕）收著每個 bot 的記憶（和它搬出去的細節檔）、技能、對話摘要，和共用技能。只看不改；紅色數字是記憶快滿的 bot 數，快滿的那份有「請它整理」鈕。"
       }
     },
     {

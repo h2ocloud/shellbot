@@ -1228,7 +1228,7 @@ class BotsApiMixin:
         autosave = bot_memory.settings(_cfg())[0]
         return bots.compose_brief(role, entry, raw_roster, memory=mem, last=last, last_name=last_name,
                                   skills=skills, own_skills=own, is_primary=bots.primary_role(raw_roster) == role,
-                                  with_ack=with_ack, autosave=autosave,
+                                  with_ack=with_ack, autosave=autosave, topics=bots.topics_brief(role),
                                   tasks=getattr(self, "_tasks_brief", lambda _r: "")(role))
 
     def bots_open(self, role: str) -> str:
@@ -1379,13 +1379,16 @@ class BotsApiMixin:
                 s._startup_trust_pending = False
                 if self._bots_memory_wanted(role):   # asked again after the wait; the folder is made only now
                     bots.ensure_dirs(role)
-                    self._send_text_to_session(
-                        s, bots.summary_prompt(role, entry, path, bots.memory_file(role)), submit=True)
+                    compact = bots.compact_due(role, _cfg())     # MEMORY.md nearly full: this save also tidies it
+                    self._send_text_to_session(s, bots.summary_prompt(role, entry, path, bots.memory_file(role), compact=compact), submit=True)
                     deadline = time.monotonic() + SUMMARY_WAIT_SEC
                     while time.monotonic() < deadline and sid in self.sessions:
                         if path.exists() and path.stat().st_size > 0:
                             written = True
                             time.sleep(3)       # MEMORY.md is usually written right after
+                            until = time.monotonic() + (bots.COMPACT_WAIT_SEC if compact else 0)   # a tidy-up into memory/ takes longer: let the turn end
+                            while self._bots_busy(sid) and time.monotonic() < until and sid in self.sessions:
+                                time.sleep(1.5)
                             break
                         time.sleep(1.0)
             if not written and sid in self.sessions and self._bots_memory_wanted(role):

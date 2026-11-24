@@ -1,7 +1,8 @@
 """The office's bookshelf (a built-in office object, see office_objects.py).
 
 What it holds, read only and only on this computer:
-  - each bot's MEMORY.md and its latest conversation summaries (`sessions/*.md`) from the bot's own folder,
+  - each bot's MEMORY.md, the detail it moved out of it (`memory/<topic>.md`, not counted in the
+    6000 characters) and its latest conversation summaries (`sessions/*.md`) from the bot's own folder,
   - each bot's own skills (`skills/<name>/SKILL.md`),
   - the shared skills (`~/.claude/skills`, `~/.codex/skills`, … `bots.SKILL_ROOTS`), with the programs
     that can read each one.
@@ -25,9 +26,11 @@ import bots
 import office_objects as oo
 import sf_lang
 
-NEAR_FULL = 0.8                       # of MEMORY_CAP
+NEAR_FULL = bots.MEMORY_NEAR_FULL     # of MEMORY_CAP (the same share a save starts tidying at)
+TOPICS_PER_BOT = 60
 SESSIONS_PER_BOT = 5
 DOCS_PER_SKILL = 20
+ASKABLE = ("memory", "memory_topic", "skill")   # kinds whose owner can be asked to update them
 READ_MAX = 200_000                    # bytes read from one file
 SEARCH_MAX = 64_000                   # bytes of a file searched for a typed query
 SHARED = "shared"
@@ -48,7 +51,8 @@ DECLARATION = {
     "filters": [
         {"id": "owner", "label": {"en": "Whose", "zh": "誰的"}},
         {"id": "type", "label": {"en": "Type", "zh": "類型"},
-         "options": [["memory", {"en": "Memory", "zh": "記憶"}], ["session", {"en": "Session summary", "zh": "對話摘要"}],
+         "options": [["memory", {"en": "Memory", "zh": "記憶"}],
+                     ["memory_topic", {"en": "Memory detail", "zh": "記憶細節"}], ["session", {"en": "Session summary", "zh": "對話摘要"}],
                      ["skill", {"en": "Skill", "zh": "技能"}]]},
     ],
     "sorts": [["mtime", {"en": "Recently changed", "zh": "最近修改"}], ["title", {"en": "Name", "zh": "名稱"}]],
@@ -56,6 +60,7 @@ DECLARATION = {
         {"id": "open_editor", "label": {"en": "Open in editor", "zh": "用編輯器打開"}},
         {"id": "ask_update", "label": {"en": "Ask {owner} to update", "zh": "請 {owner} 更新"}, "needs_tab": True,
          "primary": True},
+        {"id": "compact", "label": {"en": "Ask {owner} to tidy up", "zh": "請 {owner} 整理"}, "needs_tab": True},
     ],
 }
 
@@ -68,12 +73,7 @@ def _read(path: Path, cap=READ_MAX) -> str:
         return ""
 
 
-def _chars(path: Path) -> int:
-    """Characters of a memory file, as MEMORY_CAP counts them (whitespace at the ends does not count)."""
-    try:
-        return len(path.read_text(encoding="utf-8", errors="replace").strip())
-    except OSError:
-        return 0
+_chars = bots.memory_chars       # the count MEMORY_CAP uses; the compaction step shares it
 
 
 def _mtime(path: Path) -> int:
@@ -162,6 +162,9 @@ def _catalog(ctx) -> dict:
         if mem.is_file():
             cat[f"mem:{role}"] = {"kind": "memory", "type": "memory", "role": role, "owner": label, "path": mem,
                                   "title": "MEMORY.md", "group": role}
+        for p in bots.topic_files(role)[:TOPICS_PER_BOT]:
+            cat[f"topic:{role}:{p.name}"] = {"kind": "memory_topic", "type": "memory_topic", "role": role, "owner": label,
+                                             "path": p, "title": p.name, "group": role}
         try:
             sessions = sorted((p for p in bots.sessions_dir(role).glob("*.md") if p.is_file()), key=lambda p: p.name)
         except OSError:
@@ -246,7 +249,7 @@ class Bookshelf(oo.OfficeObject):
             if n > bots.MEMORY_CAP * NEAR_FULL:
                 row["tags"].append({"id": "near-full", "label": ctx.t("Almost full", "快滿了"), "tone": "warn"})
                 row["tone"] = "warn"
-        elif e["kind"] == "session":
+        elif e["kind"] in ("session", "memory_topic"):
             row["subtitle"] = _stamp(ts)
         else:
             fm = bots._frontmatter(e["dir"] / "SKILL.md") if e["kind"] == "skill" else {}
@@ -261,6 +264,8 @@ class Bookshelf(oo.OfficeObject):
             return ctx.t("Memory · MEMORY.md", "記憶 · MEMORY.md")
         if e["kind"] == "session":
             return ctx.t("Session summary · ", "對話摘要 · ") + e["title"]
+        if e["kind"] == "memory_topic":
+            return ctx.t("Memory detail · ", "記憶細節 · ") + e["title"]
         return (ctx.t("Skill · ", "技能 · ") if e["kind"] == "skill" else "") + e["title"]
 
     def item(self, ctx, item_id) -> dict:
@@ -288,13 +293,19 @@ class Bookshelf(oo.OfficeObject):
                 links.append({"label": raw, "object": "bookshelf", "item": f"doc:{self._scope(item_id)}:{e['skill']}:{raw}"})
         elif e["kind"] == "doc":
             links.append({"label": "SKILL.md", "object": "bookshelf", "item": e["parent"]})
-        actions = ["open_editor"] + (["ask_update"] if e["role"] and e["kind"] in ("memory", "skill") else [])
+        actions = ["open_editor"] + (["ask_update"] if e["role"] and e["kind"] in ASKABLE else [])
+        if e["kind"] == "memory" and self._nearly_full(e):
+            actions.append("compact")
         who = e["owner"] or ctx.t("Shared skills", "共用技能")
         return {"title": f"{who} / {self._title(ctx, e)}", "subtitle": e["title"] if e["kind"] == "doc" else "",
                 "markdown": _without_frontmatter(text), "meta": meta, "chips": chips, "links": links,
                 "actions": actions, "owner": e["owner"], "owner_key": f"b:{e['role']}" if e["role"] else "",
                 "note": ctx.t("Only SKILL.md and the .md files it links to are listed.", "只列 SKILL.md 和它連到的 .md 檔。")
                 if e["kind"] in ("skill", "doc") else ""}
+
+    @staticmethod
+    def _nearly_full(e) -> bool:
+        return _chars(e["path"]) > bots.MEMORY_CAP * NEAR_FULL
 
     @staticmethod
     def _scope(item_id) -> str:
@@ -306,8 +317,22 @@ class Bookshelf(oo.OfficeObject):
             return {"ok": False, "message": ctx.t("That entry is gone.", "這一筆已經不在了。")}
         if action_id == "open_editor":
             return {"ok": True, "open": str(e["path"]), "message": ctx.t("Opened in your editor.", "已用編輯器打開。")}
-        if action_id == "ask_update" and e["role"] and e["kind"] in ("memory", "skill"):
-            if e["kind"] == "memory":
+        if action_id == "compact" and e["role"] and e["kind"] == "memory":
+            if not self._nearly_full(e):
+                return {"ok": False, "message": ctx.t("MEMORY.md is not nearly full.", "MEMORY.md 還沒有快滿。")}
+            text = sf_lang.pick(
+                "(Bookshelf) This request comes from the bookshelf and is only about tidying MEMORY.md: do not write a "
+                "session summary or change anything else. " + bots.compact_step(e["role"], "en"),
+                "（書櫃）這是書櫃的要求，只做整理 MEMORY.md：不用寫對話摘要，也不要動別的。" + bots.compact_step(e["role"], "zh"))
+            return {"ok": True, "tell": {"to": f"b:{e['role']}", "text": text}}
+        if action_id == "ask_update" and e["role"] and e["kind"] in ASKABLE:
+            if e["kind"] == "memory_topic":
+                text = sf_lang.pick(
+                    f"(Bookshelf) Please update your memory detail file memory/{e['title']}: add what matters from recent work "
+                    "and drop what is out of date; keep its index line in MEMORY.md right.",
+                    f"（書櫃）請更新你的記憶細節檔 memory/{e['title']}：把最近的重點補進去、過時的刪掉；"
+                    "MEMORY.md 裡它的索引那一行也對好。")
+            elif e["kind"] == "memory":
                 n = _chars(e["path"])
                 text = sf_lang.pick(
                     f"(Bookshelf) Please update your MEMORY.md: add what matters from recent work, drop what is out of date, "
