@@ -357,3 +357,40 @@ sfctl push-status
 - **Apple 的回應**：410 或 `BadDeviceToken` 就刪掉那筆註冊，App 下次打開會重新註冊；`InvalidProviderToken`／`ExpiredProviderToken` 會換一個新的 JWT；`TopicDisallowed` 不刪註冊（問題在 key，不在手機），`last_error` 會寫出原因；429 退避；其他錯誤記在 `last_error`。log 只印 token 的前 6 碼和後 4 碼，不寫內容。
 - **Telegram**：推播正常（24 小時內成功過、之後沒有錯誤）而且手機選了 `quiet` 時，Telegram 照樣傳訊息但不響。推播一出錯，Telegram 就恢復會響。橋接自己發的 🟡 YELLOW 橫幅還是會響。
 - **隱私**：`hide_content: true` 時不送題目、不送選項，本文只有「打開 ShellBot 查看」，category 用 `SF_OPEN`。文字一律先遮掉憑證，本文 180 字以內，整包 4 KB 以內。
+
+## 辦公室（v0.65.0）
+
+App 用 WKWebView 開這台的 `web/office.html`，和桌面版的辦公室是同一份頁面。頁面在 App 裡由 `web/office_app_host.js` 組出 `window.SFOfficeHost`：資料一律透過 App 已簽章的 Frame Link 取得，快照用桌面同一套 `build()`／`track()`（`web/office_core.js`）算。**全程唯讀**：不送字給 bot、不回答看板、不換座位、不寫 `office.json`。要跟某人說話，就交給 App 打開那個分頁的對話頁。
+
+**`/link/ping`** 多一欄 `"office": {"bridge": 1, "assets": "<12 字 hash>", "enabled": <這台辦公室和 Bots 都開著>}`。沒有這一欄（舊版）或 `enabled` 是 false，App 不顯示入口；`bridge` 比 App 支援的大，提示更新 App。`assets` 是下面那張檔案表的整包 hash，變了就重新抓。
+
+**`POST /link/office/api {"method", "args": [...], "lang": "zh"/"en"}`**（`link_office.py`）：呼叫桌面的同名 js_api 方法，回 `{"success": true, "result": <它的答案>}`。只開放這 13 個，都是唯讀：
+
+| method | args |
+|---|---|
+| `office_prefs`、`bots_state`、`office_tabs`、`tasks_overview`、`schedules_list`、`link_peer_bots`、`link_peer_tasks`、`office_objects` | `[]` |
+| `task_detail` | `[任務編號]`（整數或 `"#12"`） |
+| `office_object_list` | `[物件 id, 篩選的 JSON 字串]` |
+| `office_object_item` | `[物件 id, 項目 id]` |
+| `office_ops_view` | `[sort]`（`""`／`auto`／`cpu`／`mem`） |
+| `office_ops_live` | `[true/false]`（維運視窗開著時每 60 秒說一次「還在看」，App 到背景時送 false） |
+
+- `office_tabs` 是這次新增的：這台的分頁 `{"success", "now", "bots_on", "tabs": [{"sid", "label", "cmd", "cli", "role", "kind", "state", "line", "narration", "loop", "opened_at"}], "helpers": {sid: [...]}}`，`state` 是 `working`／`decision`／`stuck`／`done`／`idle`。全部取自狀態監控的快照，不讀對話紀錄也不抓畫面。`cmd` 只有程式名，不含路徑、參數、環境變數。
+- 錯誤：`{"success": false, "code", "message"}`。`no_method`（403，不在表上）、`readonly`（403，寫入類的方法）、`bad_args`（400）、`off`（200，這台的辦公室關著）、`timeout`（8 秒）、`too_big`（答案超過 1 MB）、`error`（錯誤內容不外流）。單向配對裡不能操作這台的一方，由 `_bots_route` 回 403。
+- `bots_state` 拿掉 `memory_root`（本機路徑）；`schedules_list` 只留畫面用到的欄位，排程的成員只給個數，不給指令與 plist。
+
+**`GET /link/office/asset?path=<檔名>`**：頁面要的檔案，只認這張表上的完整檔名（`office.html`、`icons.js`、`icons.css`、`deliv_draw.js`、`bots_kit.js`、`chat_rules.js`、`office_core.js`、`office_objects.js`、`office_objects.css`、`office_arrange.js`、`office_ops.js`、`office_ops.css`、`office_app_host.js`），其他一律 404（含 `..`、子資料夾、大小寫不同）。
+
+- 簽法和 `/link/outbox/file` 一樣：`X-SF-Body-Sha256` 是檔案的 sha256 hex，`X-SF-Sign` 簽的是這個 hex。另帶 `ETag: "<同一個 hex>"`。
+- 請求帶 `If-None-Match`（有沒有引號、`W/`、清單、`*` 都認）而內容沒變時回 304，沒有 body，但 `ETag`、`X-SF-Body-Sha256`、`X-SF-Sign` 照帶，所以 304 要拿 `X-SF-Body-Sha256` 和自己快取的那份比，不是和空 body 比。
+- `Content-Type` 不在簽章範圍內，App 依副檔名自己判斷。
+
+**App 和頁面之間**（`window.webkit.messageHandlers.sfoffice.postMessage`，詳見 `web/office_app_host.js` 檔頭）：
+
+- `{op:'call', method:'POST', path:'/link/office/api', body}`：回一個一定 resolve 的 Promise。傳輸失敗回 `{success:false, code}`，`code` 是 `offline`／`timeout`／`bad_signature`／`not_allowed`／`http`。
+- `{op:'native', name, args}`：App 去做，不回值。`openChat {key, sid, peer, rsid}`（這台的人帶 `sid`；隔壁電腦的人帶 `peer`＝那台的 frame id 和 `rsid`，只有 App 也配對了那台才送）、`editBot {role}`、`openUrl {url}`（只有 http/https）、`close {}`。
+- `{op:'ready', v}`：第一個畫面畫好了。`{op:'error', why}`：`app_too_old`、`no_snapshot`（30 秒內沒拿到資料）、`script`、`off`。
+- App 在頁面的 script 開始前注入 `window.SFOfficeApp = {v, lang, uiScale, idiom, prefs, pairedIds, caps:{editBot, openChat}}`。頁面會在上面掛 `active(bool)`：App 進背景時呼叫 `false` 停止輪詢，回前景時呼叫 `true` 馬上再抓。
+- 輪詢：`office_tabs`、`link_peer_bots` 每 3 秒；`tasks_overview`、`link_peer_tasks` 每 9 秒；`bots_state`、`office_objects` 每 30 秒。一次只跑一輪；失敗時保留上一份資料，`offline`／`timeout` 會把間隔拉長，最多 30 秒。
+
+沒有 `window.SFOfficeApp` 時（桌面版的 iframe），`office_app_host.js` 什麼都不做。
