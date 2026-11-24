@@ -367,7 +367,7 @@
 
   // ── the controller ───────────────────────────────────────────────────────
   function create(env) {
-    const E = env || {}, tr = E.tr || (en => en), doc = E.doc || document, host = E.host || null, kick = E.kick || (() => {});
+    const E = env || {}, tr = E.tr || (en => en), doc = E.doc || document, away = () => !!(doc.hidden || (doc.defaultView && doc.defaultView.__sfInactive)), host = E.host || null, kick = E.kick || (() => {});
     const nowS = E.now || (() => Date.now() / 1000), ICON = root.SFIcons ? n => root.SFIcons.html(n) : () => '';
     const timing = { hb: 30000, minRefresh: 500 };
     let obj = null, veil = null, S = null, msgTimer = 0;
@@ -428,7 +428,7 @@
       $('#opMsg').textContent = '';
       paintLive(); paintNote(); paintButton();
       liveCall(tg, true);
-      S.hb = setInterval(() => { if (!doc.hidden) liveCall(tg, true); }, timing.hb);
+      S.hb = setInterval(() => { if (!away()) liveCall(tg, true); }, timing.hb);
       doc.addEventListener('visibilitychange', onVisible);
       root.addEventListener('pagehide', onHide);
       refresh();
@@ -451,7 +451,7 @@
     const toggle = () => (S && !S.target ? close() : open(null));
     const esc2 = () => { if (!S) return false; close(); return true; };
     function onHide() { if (S) liveCall(S.target, false); }
-    function onVisible() { if (!S || doc.hidden) return; liveCall(S.target, true); refresh(); }
+    function onVisible() { if (!S || away()) return; liveCall(S.target, true); refresh(); }
 
     function paintLive() {
       const l = $('#opLive'); if (!l) return;
@@ -490,7 +490,7 @@
     function schedule() {                                                 // the next read: the window's own pace, a slow retry after a failure, nothing while the page is hidden
       if (!S) return;
       clearTimeout(S.rt);
-      S.rt = setTimeout(() => { if (!S) return; if (doc.hidden) schedule(); else refresh(); }, S.ok ? S.ms : Math.max(timing.minRefresh, 5000));
+      S.rt = setTimeout(() => { if (!S) return; if (away()) schedule(); else refresh(); }, S.ok ? S.ms : Math.max(timing.minRefresh, 5000));
     }
     function showError(msg) {
       S.view = null; S.grid = ''; S.sigs = []; S.bsig = '';
