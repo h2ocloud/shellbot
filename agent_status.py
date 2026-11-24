@@ -1082,9 +1082,7 @@ def _content_text(content):
     if isinstance(content, list):
         parts = []
         for c in content:
-            if isinstance(c, dict) and c.get("type") == "text" and c.get("text"):
-                parts.append(c["text"])
-            elif isinstance(c, dict) and c.get("type") == "output_text" and c.get("text"):
+            if isinstance(c, dict) and c.get("type") in ("text", "output_text", "input_text") and c.get("text"):
                 parts.append(c["text"])
             elif isinstance(c, str):
                 parts.append(c)
@@ -1149,8 +1147,8 @@ def _norm_codex(o):
     ts = _parse_iso(o.get("timestamp"))
     if outer == "event_msg":
         if pt in ("task_started", "turn_started", "user_message"):
-            return {"kind": "user_msg", "ts": _epoch(p.get("started_at")) or ts,
-                    "text": str(p.get("message", "") or "").strip()}
+            text = _content_text(p.get("message"))
+            return {"kind": "user_msg", "ts": _epoch(p.get("started_at")) or ts, "text": text} if text else None
         if pt in ("task_complete", "turn_complete"):
             return {"kind": "turn_end", "ts": _epoch(p.get("completed_at")) or ts}
         if pt in ("exec_approval_request", "apply_patch_approval_request"):
@@ -1185,6 +1183,8 @@ def _norm_codex(o):
         if pt in ("function_call_output", "custom_tool_call_output", "tool_search_output"):
             return {"kind": "tool_result", "ts": ts}
         if pt == "message":
+            if p.get("role") == "user":
+                return None
             return {"kind": "assistant_text", "ts": ts,
                     "text": _content_text(p.get("content"))}
         if pt == "reasoning":
