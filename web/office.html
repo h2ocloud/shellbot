@@ -636,6 +636,45 @@ body.searching #top.f-search #qres{left:0;right:0;width:auto}
   .pfoot .hint,.pfoot kbd{display:none}
   body.following #legend{opacity:0;pointer-events:none}
 }
+
+/* ── 觸控與手機 App ──
+   安全區：瀏覽器／WKWebView 有 viewport-fit=cover，瀏海、圓角、Home 條要自己讓開。--sa* 已除以 --ui（有 zoom 的框裡，env() 會被一起放大）。
+   桌面沒有安全區（env() 都是 0），這一段不改變桌面的樣子。 */
+:root{--sat:calc(env(safe-area-inset-top,0px) / var(--ui));--sar:calc(env(safe-area-inset-right,0px) / var(--ui));--sab:calc(env(safe-area-inset-bottom,0px) / var(--ui));--sal:calc(env(safe-area-inset-left,0px) / var(--ui))}
+html,body{touch-action:manipulation}   /* 不等雙擊縮放：點了就算（畫布自己是 none，雙指縮放用它自己的手勢） */
+#top{padding-top:var(--sat);padding-left:max(14px,var(--sal));padding-right:max(14px,var(--sar))}
+#top.f-tight{padding-left:max(10px,var(--sal))}
+#top.f-wrap{padding-top:calc(8px + var(--sat))}
+#legend{left:max(16px,var(--sal));bottom:max(16px,var(--sab))}
+#tools{right:max(16px,var(--sar));bottom:max(16px,var(--sab))}
+#panel{right:max(12px,var(--sar));bottom:max(12px,var(--sab))}
+#toast{top:calc(76px + var(--sat))}
+#wall{padding:max(24px,env(safe-area-inset-top,0px)) max(24px,env(safe-area-inset-right,0px)) max(24px,env(safe-area-inset-bottom,0px)) max(24px,env(safe-area-inset-left,0px))}
+.oo-veil{padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px));padding-bottom:max(24px,env(safe-area-inset-bottom,0px))}
+@media (max-width:720px){
+  #legend{left:max(12px,var(--sal));bottom:max(12px,var(--sab))}
+  #tools{right:max(12px,var(--sar));bottom:max(12px,var(--sab))}
+  #panel{right:0;bottom:0;padding-bottom:var(--sab)}
+  #wall{padding:max(8px,env(safe-area-inset-top,0px)) max(8px,env(safe-area-inset-right,0px)) max(8px,env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
+}
+/* 手機 App（唯讀）：原生有自己的關閉列，不為右上角的關閉鈕留位子；寫入的東西不畫；點的目標放大；輸入框 16px 以上（iOS 聚焦時才不會把整頁放大） */
+body.app.embedded #top{padding-right:max(14px,var(--sar))}
+body.app.embedded .oo-veil{padding-top:max(24px,env(safe-area-inset-top,0px))}
+body.app #resetSeats,body.app #pGroup,body.app #dismiss,body.app #gNew{display:none !important}
+body.app #pOpenChat{display:block;width:100%;margin:0 0 12px;padding:10px 14px;background:var(--blue);color:#13172a;font-weight:700;border-radius:10px;text-align:center}
+body.app #pOpenChat[hidden]{display:none}
+body.app .vx,body.app .wx,body.app .pclose,body.app .oo-x{min-width:40px;min-height:40px}
+body.app .tb,body.app .seg button,body.app .stat{min-height:36px}
+body.app input,body.app select,body.app textarea{font-size:16px}
+body.app .cpst{font-weight:700;color:var(--dim)}
+body.app .cpst.on{color:var(--green)}
+.oo-acts:empty{display:none}
+@media (max-height:520px) and (orientation:landscape){   /* iPhone 橫式：高度只有 400 出頭，面板與蓋板要吃得下 */
+  #wall{padding-top:max(6px,env(safe-area-inset-top,0px));padding-bottom:max(6px,env(safe-area-inset-bottom,0px))}
+  #panel{top:calc(62px + var(--sat))}
+  .ph{padding:8px 14px}
+  #top{min-height:50px}
+}
 </style>
 <link rel="stylesheet" href="icons.css"/>
 <link rel="stylesheet" href="office_objects.css">
@@ -726,6 +765,7 @@ body.searching #top.f-search #qres{left:0;right:0;width:auto}
     </div>
   </section>
   <div class="pbody" id="pInfo" role="tabpanel">
+    <button class="btn" id="pOpenChat" type="button" hidden title="在 App 的對話頁開啟他的對話">在對話頁開啟</button>
     <p class="duty" id="pDuty"></p>
     <p class="duty" id="pLoop" hidden></p>
     <div class="pmeta" id="pMeta"></div>
@@ -767,7 +807,15 @@ function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; le
 function hash2(x, y) { let h = (x * 374761393 + y * 668265263) ^ 0x5bd1e995; h = (h ^ (h >>> 13)) * 1274126177; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
 // 嵌在 ShellBot 裡：主頁的 SFOffice.host（同源，可以直接呼叫）。座位、配件、顯示方式由它存到這台電腦；
 // 單獨打開這個檔時沒有它，改用 localStorage（key 帶版本，和 v0.1 分開）。
-const HOST = (() => { try { const p = window.parent; return p && p !== window && p.SFOffice && p.SFOffice.host ? p.SFOffice.host : null; } catch (e) { return null; } })();
+// 順序：手機 App 注入的 window.SFOfficeHost（App 的 WKWebView 是頂層頁，沒有 parent）→ 桌面的 parent host → 沒有（單獨打開：示範資料）。
+// APP：手機 App 內嵌（window.SFOfficeApp 存在）＝唯讀模式：寫入的控制項不畫（要說話、請他離開都在對話頁做），點人只呼叫 HOST.chat.open；
+// 連結不在頁內導覽，交給 HOST.chat.openUrl。桌面（沒有 SFOfficeApp）行為完全不變。
+const APP = !!window.SFOfficeApp;
+const APP_CAPS = (APP && window.SFOfficeApp.caps) || {};   // App 能做的事：editBot（開 bot 設定）、openChat（開對話頁）；為 false 就不畫對應的入口
+const HOST = (() => { try { if (window.SFOfficeHost) return window.SFOfficeHost; const p = window.parent; return p && p !== window && p.SFOffice && p.SFOffice.host ? p.SFOffice.host : null; } catch (e) { return null; } })();
+if (APP) document.documentElement.classList.add('app'), document.body.classList.add('app');
+// 視窗不在前景：桌面看 document.hidden；手機 App 把頁面留在記憶體時由轉接層設 window.__sfInactive（它會再發一個 visibilitychange）
+const pageHidden = () => document.hidden || !!window.__sfInactive;
 // 介面字：tr('English', '中文')，跟主視窗的語言走（HOST.lang()；單獨打開時看瀏覽器）。不叫 t：這一頁有六十多個函式
 // 用 t 當「那張任務卡」的變數名，在那些函式裡 t(...) 會呼叫到任務物件。
 const isZh = () => /^zh/i.test((HOST && HOST.lang && HOST.lang()) || navigator.language || '');
@@ -798,7 +846,7 @@ function applyOfficeCopy() {
     ['Coffee = idle / done', '咖啡＝閒置／做完'], ['Empty chair = away', '空椅子＝休息中'], ['Flying paper = handoff', '飛紙＝交辦'],
     ['Clock = task has not moved', '小時鐘＝任務太久沒動'], ['Drag avatar = move seat', '拖曳頭像＝換位子'], ['Small orange hat = part-timer (a subagent sent to a tab, leaves when done)', '小個子橘帽＝工讀生（分頁派出去的 subagent，做完就走）']
   ];
-  $$('#legend li').forEach((el, i) => { const [en, zh] = legendCopy[i] || []; if (en) { const n = [...el.childNodes].find(x => x.nodeType === Node.TEXT_NODE); if (n) n.textContent = tr(en, zh); } });
+  $$('#legend li').forEach((el, i) => { const [en, zh] = legendCopy[i] || []; if (en) { const n = [...el.childNodes].find(x => x.nodeType === Node.TEXT_NODE); if (n) n.textContent = tr(en, zh); } if (APP && i === 7) el.hidden = true; });   // 手機 App 不能換位子：圖例的「拖曳頭像」那行不放
   attr('#fps', 'title', 'Frame rate: 20fps while active, 5fps when idle, stops in a background tab', '繪製頻率：有操作時 20fps，閒置降到 5fps，分頁在背景時停止');
   spanText('#demoHandoff', 'Demo handoff', '交辦示範');
   attr('#demoHandoff', 'title', 'Run a handoff demo', '立刻演一次交辦');
@@ -815,23 +863,25 @@ function applyOfficeCopy() {
   attr('#cBox', 'aria-label', 'Message', '傳話'); text('#cSend', 'Send', '送出'); attr('#cSend', 'title', 'Send (Enter)', '送出（Enter）');
   text('#pInfo .events h3', 'Recent events', '最近事件');
   const stop = $('#stopFollow'); if (stop) stop.innerHTML = `${tr('Stop following', '停止追蹤')} <kbd>Esc</kbd>`;
-  text('#dismiss', 'Ask them to leave', '請他離開'); attr('#dismiss', 'title', "Close this intern's tab", '關掉這個實習生的分頁');
+  text('#dismiss', 'Ask them to leave', '請他離開'); text('#pOpenChat', 'Open in chat', '在對話頁開啟'); attr('#pOpenChat', 'title', 'Open their conversation on the chat page', '在 App 的對話頁開啟他的對話'); attr('#dismiss', 'title', "Close this intern's tab", '關掉這個實習生的分頁');
   text('#panel .hint', 'Drag the view to look elsewhere temporarily', '拖曳畫面可暫時看別處');
 }
 applyOfficeCopy();
 // 只開白板（SFOffice.openBoard：看板按鈕、快捷鍵）：不畫辦公室，只有白板那張大表，關掉白板就是關掉整個蓋板。主頁在載入這一頁前就決定好了。
 const BOARD_ONLY = !!(HOST && HOST.boardOnly && HOST.boardOnly());
 if (BOARD_ONLY) { document.documentElement.classList.add('bo'); const m = document.querySelector('meta[name="color-scheme"]'); if (m) m.remove(); }   // 透明的框：和主頁的 color-scheme 一樣才不會被塗上不透明底
+const SHARED_KEYS = ['seats', 'items', 'groups', 'arrange'];
 const store = { // 只存個人偏好與座位；讀不到就用預設
   get(k, d) { if (HOST) { try { const v = HOST.get(k); return v == null ? d : v; } catch (e) { return d; } }
     try { const v = localStorage.getItem('sbOffice.v2.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
-  set(k, v) { if (HOST) { try { HOST.set(k, v == null ? null : JSON.parse(JSON.stringify(v))); } catch (e) { } return; }
+  set(k, v) { if (APP && SHARED_KEYS.includes(k)) { try { console.warn('[office] app mode is read-only: not writing ' + k); } catch (e) { } return; }   // 座位、配件、分組、整理位置是電腦上的共用設定：手機只讀，不寫回（控制項本來就藏了，這是最後一道）
+    if (HOST) { try { HOST.set(k, v == null ? null : JSON.parse(JSON.stringify(v))); } catch (e) { } return; }
     try { if (v == null) localStorage.removeItem('sbOffice.v2.' + k); else localStorage.setItem('sbOffice.v2.' + k, JSON.stringify(v)); } catch (e) { } },
 };
 const hexRgb = h => { const n = parseInt(h.slice(1), 16); return [n >> 16, n >> 8 & 255, n & 255]; };
 function alpha(hex, a) { const [r, g, b] = hexRgb(hex); return `rgba(${r},${g},${b},${a})`; }   // 取自 40-render.js
 function shade(hex, k) { const [r, g, b] = hexRgb(hex), t = k < 0 ? 0 : 255, m = Math.abs(k); return `rgb(${Math.round(r + (t - r) * m)},${Math.round(g + (t - g) * m)},${Math.round(b + (t - b) * m)})`; }
-const esc = s => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+const esc = s => String(s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));   // bot 傳來的字（名字、標題、任務、事件）一律先過這裡再進 innerHTML；單引號也跳，才能放進單引號屬性
 const RM = (() => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } })();
 const FONT = getComputedStyle(document.documentElement).getPropertyValue('--font').trim() || 'system-ui,sans-serif';
 
@@ -1685,7 +1735,8 @@ function renderItemsCard(e) {
   const ids = itemsOf(e), temp = isTempEnt(e), edit = e.kind === 'bot', manual = edit && Array.isArray(itemOverrides()[e.id]);
   const chips = ids.map(id => `<span class="ichip" title="${esc(slotLabel(slotKey(ITEM[id])))}"><img src="${itemThumb(ITEM[id])}" alt="">${esc(itemLabel(ITEM[id]))}</span>`).join('') || `<span class="note">${tr('No accessories', '沒有配件')}</span>`;
   let h = `<h3>${tr('Accessories', '配件')} <em>${manual ? tr('Manually chosen', '自己選的') : tr('Assigned by role', '依執掌自動配')}</em></h3><div class="chips">${chips}</div>`;
-  if (!edit) h += `<p class="note">${temp ? tr('Interns wear a CLI-colored hat and keep one small item on the desk.', '實習生：依 CLI 戴不同顏色的帽子，桌上只放一件小東西。') : tr('A bot from the other computer changes accessories there.', '隔壁電腦的 bot，在那台電腦上換配件。')}</p>`;
+  if (APP && edit) h += `<p class="note">${tr('Accessories are changed on the computer.', '配件在電腦上換。')}</p>`;
+  else if (!edit) h += `<p class="note">${temp ? tr('Interns wear a CLI-colored hat and keep one small item on the desk.', '實習生：依 CLI 戴不同顏色的帽子，桌上只放一件小東西。') : tr('A bot from the other computer changes accessories there.', '隔壁電腦的 bot，在那台電腦上換配件。')}</p>`;
   else {
     h += `<div class="iact"><button data-act="toggle" class="${itemsOpen ? 'on' : ''}">${itemsOpen ? tr('Collapse accessory library', '收起配件庫') : tr('Open accessory library', '打開配件庫')}</button>${manual ? `<button data-act="auto">${tr('Use automatic assignment', '恢復自動配')}</button>` : ''}</div>`;
     if (itemsOpen) h += `<div class="igrid" role="listbox" aria-label="${tr('Accessory library', '配件庫')}">${ITEMS.map(it => `<button data-item="${it.id}" class="${ids.includes(it.id) ? 'on' : ''}" aria-pressed="${ids.includes(it.id)}" title="${esc(itemLabel(it))}"><img src="${itemThumb(it)}" alt=""><span>${esc(itemLabel(it))}</span><small>${esc(slotLabel(slotKey(it)))}</small></button>`).join('')}</div><p class="note">${tr('Click to add or remove. When a slot is full, the oldest item is replaced.', '點一下加上或拿掉。同一個位置放滿時，會換掉最早放的那件。')}${HOST ? tr(' Stored on this computer.', '存在這台電腦。') : tr(' Stored in this browser for the demo.', '示範版存在這台瀏覽器。')}</p>`;
@@ -1693,6 +1744,7 @@ function renderItemsCard(e) {
   $('#pItems').innerHTML = h;
 }
 function toggleItem(e, id) {
+  if (APP) return;
   const it = ITEM[id]; if (!it || e.kind !== 'bot') return; const cur = [...itemsOf(e)], k = slotKey(it), cap = capacityOf(e);
   if (cur.includes(id)) cur.splice(cur.indexOf(id), 1);
   else { if (!cap[k]) { toast(tr('There is no room for ', '這個位子放不下') + itemLabel(it)); return; } const same = cur.filter(i => slotKey(ITEM[i]) === k); if (same.length >= cap[k]) { cur.splice(cur.indexOf(same[0]), 1); toast(`${slotLabel(k)}${tr(' is full; replaced ', '放滿了，換掉')}${itemLabel(ITEM[same[0]])}`); } cur.push(id); }
@@ -1716,7 +1768,7 @@ function renderHelperPanel(e, force) {
   $('#pMeta').innerHTML = [w.model ? `<span>${esc(w.model)}</span>` : '', w.agentType ? `<span>${esc(w.agentType)}</span>` : '', `<span>${tr('Leaves when done', '做完就走')}</span>`].join('');
   $('#pTask').innerHTML = `<h3>${tr('This run', '這一趟')}</h3><dl class="kv"><dt>${tr('Assigned by', '派他的')}</dt><dd>${whoChip(e.parentKey)}</dd><dt>${tr('Running', '跑了')}</dt><dd>${e.started ? fmtDur(now - e.started) : '—'}</dd><dt>${tr('Last activity', '最後動靜')}</dt><dd>${e.lastAt ? `${hhmm(e.lastAt)} (${fmtDur(now - e.lastAt)}${tr(' ago', '前')})` : '—'}</dd></dl>` +
     (e.st === 'stuck' ? `<p class="note stale">${CLOCK_SVG}${tr('No writing for over 10 minutes, and it is not done yet.', '超過 10 分鐘沒有寫任何東西，也還沒做完')}</p>` : e.st === 'idle' ? `<p class="note">${tr('No activity for the last few minutes.', '這幾分鐘沒有動靜。')}</p>` : '') +
-    (CHAT ? `<p class="note">${tr('Part-timers do not have their own chat: their work and report go to the person who assigned them.', '工讀生沒有自己的對話框：他做什麼、做完回報什麼，都在派他的人的對話裡。')}</p>${par && chatAble(par) ? `<div class="iact"><button data-act="parent-chat">${tr('View', '看')}${esc(par.who.name)}${tr("'s chat", '的對話')}</button></div>` : ''}` : '');
+    (CHAT ? `<p class="note">${tr('Part-timers do not have their own chat: their work and report go to the person who assigned them.', '工讀生沒有自己的對話框：他做什麼、做完回報什麼，都在派他的人的對話裡。')}</p>${par && (chatAble(par) || openAble(par)) ? `<div class="iact"><button data-act="parent-chat">${tr('View', '看')}${esc(par.who.name)}${tr("'s chat", '的對話')}</button></div>` : ''}` : '');
   $('#pItems').innerHTML = `<h3>${tr('Accessories', '配件')}</h3><p class="note">${tr('Part-timers come for one task and have no accessories.', '工讀生只來做一件事，沒有配件。')}</p>`;
   const evs = e.events.slice(-8).reverse(), pn = performance.now();
   $('#pEvents').innerHTML = evs.map(v => `<li class="${v.fresh && pn - v.fresh < 1500 ? 'new' : ''}"><time>${hhmm(v.t)}</time><i style="--c:${EVC[v.kind] || COL.dim}"></i><span>${esc(v.text)}${v.n > 1 ? `<b class="evn" title="${tr('3 events in this minute', '這一分鐘內 3 次')}">×${v.n}</b>` : ''}</span></li>`).join('') || `<li><time></time><i></i><span style="color:var(--mute)">${tr('No events yet', '還沒有事件')}</span></li>`;
@@ -1725,7 +1777,7 @@ let groupSig = '';
 // 請實習生離開：關掉他的分頁（這台的、或配對電腦上的）。按第一下只是確認，4 秒內再按一次才關；換人就取消。
 let byeArmed = null, byeTimer = 0;
 function renderBye(e) {
-  const b = $('#dismiss'), can = !!(CHAT && CHAT.dismiss && e && (e.kind === 'temp' || e.kind === 'peertemp') && !e.leaving);
+  const b = $('#dismiss'), can = !APP && !!(CHAT && CHAT.dismiss && e && (e.kind === 'temp' || e.kind === 'peertemp') && !e.leaving);
   b.hidden = !can;
   // Called every frame (renderPanel): write only what differs. Setting textContent swaps the button's text node even
   // to the same words, and a press (mousedown ... mouseup, 50-150 ms) that straddles a frame loses its click: the
@@ -1737,7 +1789,7 @@ function renderBye(e) {
   }
 }
 async function pressBye() {
-  const e = follow && M.ents.get(follow); if (!e || !CHAT || !CHAT.dismiss) return;
+  const e = follow && M.ents.get(follow); if (APP || !e || !CHAT || !CHAT.dismiss) return;
   const b = $('#dismiss');
   if (byeArmed !== e.key) {
     byeArmed = e.key; b.classList.add('armed');
@@ -1754,7 +1806,7 @@ async function pressBye() {
 }
 function renderGroupCard(e) {
   const el = $('#pGroup');
-  if (!e || e.kind !== 'bot') { el.hidden = true; groupSig = ''; return; }
+  if (APP || !e || e.kind !== 'bot') { el.hidden = true; groupSig = ''; return; }
   const gs = groupsOf(), mine = groupName(gs[e.id]) || (zoning === 'custom' ? e.who.team : '') || '';
   const names = [...new Set([...Object.values(gs).map(groupName).filter(Boolean), ...(zoning === 'custom' ? M.zones.map(z => z.team) : [])])]
     .filter(n => n !== UNGROUPED).sort((a, b) => a.localeCompare(b, 'zh-Hant'));
@@ -1771,6 +1823,7 @@ function renderGroupCard(e) {
 function renderPanel(force) {
   if (!follow) return; const e = M.ents.get(follow); if (!e) { stopFollow(); return; }
   chatSync(e);
+  renderOpenChat(e);
   renderGroupCard(e);
   renderBye(e);
   if (e.kind === 'helper') { renderHelperPanel(e, force); return; }
@@ -1788,7 +1841,7 @@ function renderPanel(force) {
   $('#pDuty').innerHTML = temp
     ? `<span>${tr('Doing', '在做')}</span>${esc(tempDoing)}`   // 實習生沒有執掌：看他在做什麼
     : `<span>${tr('Role', '執掌')}</span>${esc(w.duty || '—')}` + (w.doing && e.st !== 'asleep' ? `<br><span>${tr('Doing', '在做')}</span>${esc(w.doing)}` : '');
-  $('#pMeta').innerHTML = temp ? `<span>${tr('No memory', '不留記憶')}</span><span>${tr('Close tab when done', '做完就關分頁')}</span>` : `${w.runs == null ? `<span>${tr('Memory saved', '記憶 已存')}</span><span>${tr('Demo CLI · demo model', '示範 CLI · 示範模型')}</span>` : (w.memory === false ? `<span>${tr('No memory', '不留記憶')}</span>` : `<span>${tr('Has memory', '有記憶')}</span>`) + (w.runs ? `<span>${esc(w.runs)}</span>` : '')}${e.st === 'asleep' ? `<span>${tr('No open tab', '沒有開分頁')}</span>` : ''}${movable ? `<span>${tr('Drag avatar to move seat', '拖曳頭像可換位子')}</span>` : ''}`;
+  $('#pMeta').innerHTML = temp ? `<span>${tr('No memory', '不留記憶')}</span><span>${tr('Close tab when done', '做完就關分頁')}</span>` : `${w.runs == null ? `<span>${tr('Memory saved', '記憶 已存')}</span><span>${tr('Demo CLI · demo model', '示範 CLI · 示範模型')}</span>` : (w.memory === false ? `<span>${tr('No memory', '不留記憶')}</span>` : `<span>${tr('Has memory', '有記憶')}</span>`) + (w.runs ? `<span>${esc(w.runs)}</span>` : '')}${e.st === 'asleep' ? `<span>${tr('No open tab', '沒有開分頁')}</span>` : ''}${movable && !APP ? `<span>${tr('Drag avatar to move seat', '拖曳頭像可換位子')}</span>` : ''}`;
   const t = e.task, stl = { todo: tr('To do', '待辦'), doing: tr('In progress', '進行中'), waiting: tr('Waiting', '等待中'), done: tr('Done', '完成'), dropped: tr('Dropped', '放棄') };
   $('#pTask').innerHTML = !t ? `<h3>${tr('Current task', '目前任務')}</h3><p class="note">${tr('No task in hand.', '沒有手上的任務。')}</p>` :
     `<h3>${e.st === 'asleep' ? tr('Task in hand', '手上的待辦') : tr('Current task', '目前任務')} <em>${esc(t.id)} · ${stl[t.status] || ''}</em></h3><div class="ttl">${esc(t.title)}</div>
@@ -1822,12 +1875,20 @@ function stopFollow() {
    清單和傳話框不在 renderPanel 重畫的範圍內：每 3 秒一次的快照不會吃掉打到一半的字或注音選字。 */
 const CHAT = HOST && HOST.chat ? HOST.chat : null;
 const CHAT_POLL_MS = 2000;
+// 手機 App 的外殼（只在 APP 有）：連結不在頁內導覽，一律交給 HOST.chat.openUrl（只放 http／https）；頁面自己不開視窗、不跳 alert。
+if (APP) {
+  const toHost = u => { u = String(u || ''); if (/^https?:\/\//i.test(u) && CHAT && CHAT.openUrl) CHAT.openUrl(u); };
+  document.addEventListener('click', ev => { const a = ev.target && ev.target.closest && ev.target.closest('a'); if (!a || ev.defaultPrevented) return; ev.preventDefault(); toHost(a.getAttribute('href') || a.dataset.url); });
+  window.open = u => { toHost(u); return null; };
+  for (const k of ['alert', 'confirm', 'prompt']) window[k] = () => (k === 'confirm' ? false : k === 'prompt' ? null : undefined);
+}
 const chat = { key: null, gen: 1, loading: 0, rev: '', data: null, sending: false, draftCard: null, answered: null, flash: null, first: true, open: new Set(), askSig: '', noteSig: '' };
 const unsent = new Map();            // 每個人還沒送出的字：換人時收起來，換回來放回去（不會送到別人那裡）
 const attached = new Map();          // 每個人貼上、還沒送出的圖片／檔案：[{path, name, url}]（url：縮圖）
 let panelTab = store.get('panelTab', 'chat') === 'info' ? 'info' : 'chat';
 const tellChat = () => CHAT || DEMO_CHAT;   // 示範（單獨開這一頁）沒有真的對話：DEMO_CHAT 只記下「送了什麼」
-const chatAble = e => !!(CHAT && e && ['bot', 'temp', 'peer', 'peertemp'].includes(e.kind) && !e.gone);   // 隔壁電腦的人走那台的 /link/chat
+const chatAble = e => !APP && !!(CHAT && e && ['bot', 'temp', 'peer', 'peertemp'].includes(e.kind) && !e.gone);   // APP：面板沒有對話頁籤、傳話框（唯讀）
+const openAble = e => !!(APP_CAPS.openChat !== false && CHAT && CHAT.open && e && ['bot', 'temp', 'peer', 'peertemp'].includes(e.kind) && !e.gone && CHAT.has && CHAT.has(e.key));   // 手機 App：在 App 的對話頁開他的對話（HOST.chat.open）   // 隔壁電腦的人走那台的 /link/chat
 function chatSync(e) {
   const able = chatAble(e), showChat = able && panelTab === 'chat';
   $('#pTabs').hidden = !able;
@@ -1841,6 +1902,11 @@ function chatSync(e) {
   if (!can && chat.data) { chat.data = null; chat.rev = ''; }
   if (!can) chatEmpty('no_tab');
   $('#cBox').placeholder = tr(`Message ${e.who.name}… (Enter to send, Shift+Enter for a new line)`, `傳話給${e.who.name}…（Enter 送出，Shift+Enter 換行）`);
+}
+// 手機 App：資料頁最上面一顆「在對話頁開啟」（取代對話頁籤；有分頁才有，沒有就不畫）
+function renderOpenChat(e) {
+  const b = $('#pOpenChat'); if (!APP || !b) return;
+  const can = !!(e && openAble(e)); b.hidden = !can; if (can) b.dataset.key = e.key;
 }
 function chatLeave() {
   if (chat.key) { const v = $('#cBox').value; if (v.trim()) unsent.set(chat.key, v); else unsent.delete(chat.key); }
@@ -1869,7 +1935,7 @@ function chatEmpty(why) {
   const a = $('#cAsk'); a.hidden = true; a.innerHTML = ''; chat.askSig = '';
 }
 async function chatTick(force) {
-  if (!CHAT || !chat.key || document.hidden || $('#pChat').hidden || chat.loading === chat.gen) return;
+  if (!CHAT || !chat.key || pageHidden() || $('#pChat').hidden || chat.loading === chat.gen) return;
   const key = chat.key, gen = chat.gen, e = M.ents.get(key);
   chat.loading = gen;
   let r = null;
@@ -2019,12 +2085,14 @@ $('#cBox').addEventListener('keydown', ev => {
 });
 $('#cBox').addEventListener('input', autosize);
 $('#cBox').addEventListener('paste', chatPaste);
+$('#pOpenChat').addEventListener('click', () => { const e = follow && M.ents.get(follow); if (e && openAble(e)) CHAT.open(e.key); });
 $('#pTask').addEventListener('click', ev => {
   const b = ev.target.closest('button[data-act="parent-chat"]'), e = follow && M.ents.get(follow); if (!b || !e) return;
+  if (APP) { if (openAble(M.ents.get(e.parentKey))) CHAT.open(e.parentKey); return; }   // 手機 App：在對話頁開派他的人的對話
   panelTab = 'chat'; store.set('panelTab', panelTab); startFollow(e.parentKey);
 });
 if (CHAT) setInterval(() => chatTick(false), CHAT_POLL_MS);
-document.addEventListener('visibilitychange', () => { if (!document.hidden) chatTick(false); });
+document.addEventListener('visibilitychange', () => { if (!pageHidden()) chatTick(false); });
 
 /* ══════════ 11.7 牆上的兩件東西：任務看板（大廳後牆的白板）、排程（旁邊的日曆）══════════
    兩件都是牆上畫出來的東西，也是可以點的：點了，側邊面板換成它的檢視（和跟拍同一個面板，但不是在看某個人；
@@ -2055,21 +2123,27 @@ const WALL_OBJ = { board: { get name() { return tr('Task board', '任務看板')
 // The bookshelf is not placed: it is the room's own (LOBBY_SHELF). tests_office_furniture_ui.py checks every lobby footprint.
 const OBJ_SLOTS = [[11.6, 12.6]];
 const OBJ_FIXTURES = [{ furniture: 'bookshelf', x0: LOBBY_SHELF.x, x1: LOBBY_SHELF.x + LOBBY_SHELF.w, y0: LOBBY_SHELF.y, y1: LOBBY_SHELF.y + LOBBY_SHELF.h, h: 48, on: 'decor:shelf@' + LOBBY_SHELF.x }];
+// 手機 App 唯讀：物件蓋板的動作只留「編輯執掌」（它不寫任何東西，只是請 App 開那個 bot 的設定）；其他動作不畫、也不送出。
+const APP_OBJ_ACTIONS = APP_CAPS.editBot === false ? [] : ['edit_duty'];
+const appObjects = O => (!APP || !O ? O : Object.assign({}, O, {
+  async item(id, iid) { const r = await O.item(id, iid); if (r && r.item && Array.isArray(r.item.actions)) r.item = Object.assign({}, r.item, { actions: r.item.actions.filter(a => APP_OBJ_ACTIONS.includes(a)) }); return r; },
+  async action(id, iid, aid, args) { return APP_OBJ_ACTIONS.includes(aid) ? O.action(id, iid, aid, args) : { success: false, readonly: true, message: tr('Read only on the phone.', '手機上只能看。') }; },
+}));
 const OBJ = OfficeObjects.create({
   tr, doc: document, kick: () => kick(), slots: OBJ_SLOTS, fixtures: OBJ_FIXTURES,
-  host: HOST ? { objects: HOST.objects, md: HOST.md } : OfficeObjects.demoHost(tr),
+  host: HOST ? { objects: appObjects(HOST.objects), md: HOST.md } : OfficeObjects.demoHost(tr),
   beforeOpen() { if (view) closeView(true); if (follow) stopFollow(true); OPS.close(); hoverObj = null; hoverKey = null; cv.classList.remove('pt'); },
   hasTab: key => !!(HOST && HOST.chat && HOST.chat.has(key)),
   rowIcon: (o, i) => (o && o.id === 'deliverables' && i.type ? `<img src="${SFDelivDraw.thumb(i.type, 64)}" alt="">` : ''),   // 清單裡每種檔案一個小物件（和桌上同一套畫法）
   changed: () => { if (HOST && HOST.objectsChanged) HOST.objectsChanged(); kick(); },
-  send: (key, text) => HOST.chat.send(key, text, false),
+  send: (key, text) => (APP || !HOST.chat.send ? Promise.resolve({ success: false, readonly: true }) : HOST.chat.send(key, text, false)),
   openUrl: url => { if (HOST && HOST.chat && HOST.chat.openUrl) HOST.chat.openUrl(url); },
   editBot: role => !!(HOST && HOST.editBot && HOST.editBot(role)),
   view: (v, task) => { if (v === 'board') applyFocus({ task: task == null ? null : task }); else if (view !== 'cal') openView('cal'); },
   follow: key => { if (M.ents.get(key)) startFollow(key); },
 });
 const ARRG = OfficeArrange.create({   // 整理位置：把隔壁電腦的房間排到這台電腦四周（office_arrange.js）
-  tr, doc: document, kick: () => kick(), store, toast: m => toast(m), G, hidden: BOARD_ONLY,
+  tr, doc: document, kick: () => kick(), store, toast: m => toast(m), G, hidden: BOARD_ONLY || APP,
   peers: () => M.peers, rooms: () => M.rooms, arr: () => M.arr, COL, FONT, RM,
   P: (x, y, z) => P(x, y, z), t2s: (x, y, z) => t2s(x, y, z), fquad: (...a) => fquad(...a), poly: (...a) => poly(...a), box: (...a) => box(...a), ellipse: (...a) => ellipse(...a), alpha, pill: (...a) => pill(...a),
   ctx: () => c, dpr: () => DPR, time: () => T, view: () => ({ z: cam.z, m: V.m }),
@@ -2079,8 +2153,8 @@ const ARRG = OfficeArrange.create({   // 整理位置：把隔壁電腦的房間
 // 只有 experimental_ops 開著、registry 有 ops 物件時才有（OPS.active()）；畫面開著時，後端每 2 秒量一次，關掉就回到每 5 分鐘。
 const OPS = OfficeOps.create({
   tr, doc: document, kick: () => kick(), rm: RM,
-  host: HOST ? { view: id => HOST.objects.view(id), live: (id, on) => HOST.objects.live(id, on), action: (id, iid, aid, args) => HOST.objects.action(id, iid, aid, args),
-                 peerView: (pid, sort) => HOST.objects.peerView(pid, sort), peerLive: (pid, on) => HOST.objects.peerLive(pid, on) } : OfficeOps.demoHost(tr),
+  host: HOST ? { view: id => HOST.objects.view(id), live: (id, on) => HOST.objects.live(id, on), action: (id, iid, aid, args) => (APP ? Promise.resolve({ success: false, readonly: true }) : HOST.objects.action(id, iid, aid, args)),   // 手機 App：維運規則與靜音只看（view 的 widget 也是 readonly）
+                 peerView: (pid, sort) => (APP && !HOST.objects.peerView ? Promise.resolve({ success: false, code: 'old' }) : HOST.objects.peerView(pid, sort)), peerLive: (pid, on) => (APP && !HOST.objects.peerLive ? Promise.resolve({ success: false, code: 'old' }) : HOST.objects.peerLive(pid, on)) } : OfficeOps.demoHost(tr),
   beforeOpen() { if (view) closeView(true); if (follow) stopFollow(true); OBJ.close(); hoverObj = null; hoverKey = null; cv.classList.remove('pt'); },
   changed: () => { if (HOST && HOST.objectsChanged) HOST.objectsChanged(); kick(); },
 });
@@ -2341,7 +2415,7 @@ function boardSub() {
 function peerTail(pe) {                              // 隔壁電腦的任務只能看：要改，請那台的主要 bot 處理（有辦法跟它說話就給一顆「跟 … 說」）
   const k = pe.primaryKey, e = k ? personEnt(k) : null, can = !BOARD_ONLY && !!(e && tellChat() && tellChat().has(k));
   return `<div class="wpeer"><p>這是「${esc(pe.name)}」的任務，這裡只能看。要改它，${e ? `請跟那台的主要 bot（${esc(e.who.name)}）說` : '請到那台電腦上處理'}。</p>` +
-    (can ? `<div class="wb-actions"><button type="button" class="wa" data-act="tellmain" data-key="${esc(k)}">跟 ${esc(e.who.name)} 說</button></div>` : '') + '</div>';
+    (can && !(APP && APP_CAPS.openChat === false) ? `<div class="wb-actions"><button type="button" class="wa" data-act="tellmain" data-key="${esc(k)}">${APP ? '在對話頁開啟 ' : '跟 '}${esc(e.who.name)}${APP ? '' : ' 說'}</button></div>` : '') + '</div>';
 }
 // 連到這件任務的交付物（sfctl deliver add --task N）：卡上多一行「交付物 N」，點了開那件任務的交付物清單
 const delivRow = t => { const o = !viewPeer() && OBJ.find('deliverables'), n = o && o.by_task ? Number(o.by_task[String(t.id)]) || 0 : 0; return n ? `<dt>${tr('Deliverables', '交付物')}</dt><dd><button type="button" class="wa dv" data-act="adeliv" data-id="${t.id}">${tr(`Deliverables ${n}`, `交付物 ${n}`)}</button></dd>` : ''; };
@@ -2376,13 +2450,14 @@ function tellMiss(t, mode) {                         // 該讓他知道、卻告
   return { name: e ? e.who.name : raw, why: c.key ? tr('Their tab is not open (they are away)', '他現在沒有開著的分頁（在休息）') : tr('No bot or tab with this name is open here', '這台找不到這個名字的 bot 或分頁') };
 }
 function actionsHtml(t) {
+  if (APP) return '';   // 手機 App 唯讀：不畫「回覆／我做好了／留言」
   const a = vstate.act && vstate.act.id === t.id ? vstate.act : null;
   if (!a) return `<div class="wb-actions" data-slot="actions">${isDecision(t) ? `<button type="button" class="wa ok" data-act="areply">${tr('Reply', '回覆')}</button>` : canDone(t) ? `<button type="button" class="wa" data-act="adone">${tr('Done', '我做好了')}</button>` : ''}<button type="button" class="wa" data-act="anote">${tr('Leave a note', '留言')}</button></div>`;
   const tl = tellOf(t, a.mode), miss = tl ? null : tellMiss(t, a.mode), dis = a.busy ? ' disabled' : '', reply = a.mode === 'reply';
   return `<div class="wb-actions open" data-slot="actions"><form class="wform" novalidate><label class="wl" for="wText">${reply ? tr('Write your decision or answer. Sending it marks this task done.', '你的決定或回答（要寫）。送出就把這件標成做好了。') : a.mode === 'done' ? tr('Mark it done. Add a result? (optional)', '標成做好了。要補一句結果嗎？（可以不寫）') : tr('What would you like to say? (required)', '想留什麼話？（要寫）')}</label>` +
     `<textarea id="wText" rows="3" maxlength="500"${reply ? ` placeholder="${esc(tr('Your decision or answer', '你的決定或回答'))}" aria-required="true"` : ''}${dis}>${esc(a.text)}</textarea>` +
     (tl ? `<label class="wtell"><input type="checkbox" data-tell${a.tell ? ' checked' : ''}${dis}> ${tr('Also tell', '也告訴')} ${esc(tl.name)}</label>`
-      : miss ? `<div class="wtell wmiss" role="note">${tr(`Could not notify ${miss.name}: ${miss.why}. It will be recorded on this card; they will see it on the board.`, `沒辦法通知 ${miss.name}：${miss.why}。會記在這張卡上，他看白板才會知道。`)}</div>` : '') +
+      : miss ? `<div class="wtell wmiss" role="note">${tr(`Could not notify ${esc(miss.name)}: ${esc(miss.why)}. It will be recorded on this card; they will see it on the board.`, `沒辦法通知 ${esc(miss.name)}：${esc(miss.why)}。會記在這張卡上，他看白板才會知道。`)}</div>` : '') +
     `<div class="wmsg${a.bad ? ' bad' : ''}" role="status">${esc(a.busy ? tr('Sending…', '送出中…') : a.msg)}</div>` +
     `<div class="wrow"><button type="submit" class="wa ok"${dis}>${reply ? tr('Send reply', '送出回覆') : tr('Confirm', '確定')}</button><button type="button" class="wa" data-act="acancel"${dis}>${tr('Cancel', '取消')}</button><span class="wk">${tr('⌘/Ctrl + Enter to send', '⌘/Ctrl + Enter 送出')}</span></div></form></div>`;
 }
@@ -2445,7 +2520,7 @@ function boardClick(ev) {
   else if (b.dataset.act === 'adone' || b.dataset.act === 'anote' || b.dataset.act === 'areply') openAct([...vstate.open][0], b.dataset.act === 'adone' ? 'done' : b.dataset.act === 'areply' ? 'reply' : 'note');
   else if (b.dataset.act === 'acancel') cancelAct();
   else if (ov && b.dataset.act === 'person') pickPerson(b.dataset.key);
-  else if (ov && b.dataset.act === 'tellmain') { panelTab = 'chat'; store.set('panelTab', panelTab); pickPerson(b.dataset.key); }   // 跟那台的主要 bot 說：跟拍它，面板開在對話頁
+  else if (ov && b.dataset.act === 'tellmain') { if (APP) { if (CHAT && CHAT.open) CHAT.open(b.dataset.key); return; } panelTab = 'chat'; store.set('panelTab', panelTab); pickPerson(b.dataset.key); }   // 跟那台的主要 bot 說：跟拍它，面板開在對話頁
 }
 
 // ── 排程日曆（日／週／月）──
@@ -2749,13 +2824,14 @@ function calPopHtml(e) {
     `<dl class="cpd"><dt>負責</dt><dd>${who}</dd><dt>頻率</dt><dd>${esc(words || '—')}${e.est ? ' <span class="estag">預估</span>' : ''}${e.off ? ' <span class="estag">已停用</span>' : ''}</dd>` +
     `<dt>下一次</dt><dd>${esc(nx.text)}${nx.ts ? ` <span class="cd" data-ts="${nx.ts}" data-st="">${esc(cdText(nx.ts, ''))}</span>` : ''}</dd></dl>` +
     (ptxt ? `<p class="cpb${C.stale ? ' stale' : ''}" role="status">${esc(ptxt)}</p>` : '') + (CAL.msg && CAL.pop === e.id ? `<p class="cpm" role="status">${esc(CAL.msg)}</p>` : '') +
+    (APP ? `<div class="cpc"><div class="cprow"><span class="cpl">狀態</span><span class="cpv cpst${swOn ? ' on' : ''}">${swTxt}</span></div></div>` :
     `<div class="cpc"><div class="cprow"><span class="cpl">開關</span><button type="button" class="sw${swOn ? ' on' : ''}" role="switch" aria-checked="${swOn}" data-act="csw"${C.sw.off || busy ? ' disabled' : ''} title="${esc(C.sw.off ? C.sw.why : C.sw.tip)}"><i></i></button><span class="cpv">${swTxt}</span></div>` +
     (C.sw.off && C.sw.why ? `<p class="cpw">${esc(C.sw.why)}</p>` : '') +
     `<div class="cprow"><span class="cpl">頻率</span><select id="calFreq" data-act="cfsel"${C.fq.off || busy ? ' disabled' : ''} title="${esc(C.fq.why)}" aria-label="頻率">${opts}</select>` +
     `<input type="time" id="calTime" value="${esc(dr.t)}" data-act="cftime"${dr.f === 'daily' ? '' : ' hidden'}${C.fq.off || busy ? ' disabled' : ''} aria-label="每天幾點">` +
     `<button type="button" class="btn go" data-act="cfreq"${C.fq.off || busy || !changed ? ' disabled' : ''} title="${esc(C.fq.why)}">${o.name ? `請 ${esc(o.name)} 調整` : '請負責的 agent 調整'}</button></div>` +
     (C.fq.off && C.fq.why ? `<p class="cpw">${esc(C.fq.why)}</p>` : '') + '</div>' +
-    `<p class="cpn">其他設定只能由負責的 agent 調整</p>` +
+    `<p class="cpn">其他設定只能由負責的 agent 調整</p>`) +
     (o.name ? `<button type="button" class="btn say" data-act="csay"${personEnt(o.key) ? '' : ' disabled'} title="${personEnt(o.key) ? '到他的座位旁' : esc(o.name) + ' 不在辦公室'}">跟 ${esc(o.name)} 說</button>` : '') + '</div>';
 }
 function calPopSync(force) {
@@ -2879,7 +2955,7 @@ async function loadDetail(id, upd) {
 }
 async function schedPoll() {                                    // 只在「排程」檢視開著時由畫面迴圈叫；第一次馬上問，之後最多每 SCHED.every 毫秒一次
   const h = boardHost();
-  if (!h || !h.schedules || SCHED.busy || document.hidden || (SCHED.data && performance.now() - SCHED.at < SCHED.every)) return;
+  if (!h || !h.schedules || SCHED.busy || pageHidden() || (SCHED.data && performance.now() - SCHED.at < SCHED.every)) return;
   SCHED.busy = true; SCHED.at = performance.now(); SCHED.calls++;
   let r = null; try { r = await h.schedules(); } catch (err) { r = null; }
   SCHED.busy = false;
@@ -3123,14 +3199,14 @@ const perfBuf = [];
 const busy = () => (!DEMO.paused && (papers.length > 0 || rings.length > 0 || [...M.ents.values()].some(e => e.walk && e.walk.t >= 0))) || camMoving() || V.k < 1 || [...M.rooms.values()].some(r => r.alpha < 1 || Math.abs(r.tx - r.x) > .01 || Math.abs(r.ty - r.y) > .01 || Math.abs(r.th - r.h) > .01);
 const active = () => performance.now() - lastInput < IDLE_AFTER || busy();
 function schedule() {   // 用計時器排下一幀：兩幀之間固定 50ms（閒置 200ms），閒置時一秒只醒 5 次
-  if (document.hidden || timer) return;
+  if (pageHidden() || timer) return;
   const gap = BOARD_ONLY ? 250 : 1000 / (active() ? FPS_ON : FPS_IDLE), wait = Math.max(0, gap - (performance.now() - lastT));
   timer = setTimeout(frame, wait);
 }
 function kick() { lastInput = performance.now(); if (timer) { clearTimeout(timer); timer = 0; } schedule(); }
 let busyFrames = 0;
 function frame() {
-  timer = 0; if (document.hidden) return;
+  timer = 0; if (pageHidden()) return;
   if (BOARD_ONLY) { lastT = performance.now(); try { viewStep(); } catch (e) { console.error(e); } schedule(); return; }   // 只有白板：不模擬、不畫地板
   const now = performance.now(), gap = 1000 / (active() ? FPS_ON : FPS_IDLE);
   if (now - lastT < gap - 1) { schedule(); return; }   // 保險：兩幀至少隔 50ms（閒置 200ms）
@@ -3146,7 +3222,7 @@ function frame() {
 function roomStep(dt) { const k = 1 - Math.exp(-dt * 6); for (const r of M.rooms.values()) { r.x += (r.tx - r.x) * k; r.y += (r.ty - r.y) * k; r.w += (r.tw - r.w) * k; r.h += (r.th - r.h) * k; if (Math.abs(r.tx - r.x) < .005) r.x = r.tx; if (Math.abs(r.ty - r.y) < .005) r.y = r.ty; if (Math.abs(r.tw - r.w) < .005) r.w = r.tw; if (Math.abs(r.th - r.h) < .005) r.h = r.th; if (r.alpha < 1) r.alpha = Math.min(1, r.alpha + dt * 2.2); } }
 function fpsTick(now) { fpsWin.push(now); while (fpsWin.length && now - fpsWin[0] > 1000) fpsWin.shift(); const f = fpsWin.length, txt = active() ? tr(`${Math.min(f, FPS_ON)} fps · live`, `${Math.min(f, FPS_ON)} fps · 即時`) : tr(`${Math.min(f, FPS_IDLE + 1)} fps · power save`, `${Math.min(f, FPS_IDLE + 1)} fps · 省電`); if (txt !== fpsShown) { fpsShown = txt; const el = $('#fps'); el.textContent = txt; el.classList.toggle('slow', !active()); } }
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) { if (timer) clearTimeout(timer); timer = 0; }
+  if (pageHidden()) { if (timer) clearTimeout(timer); timer = 0; }
   else { lastT = performance.now(); kick(); }
 });
 
@@ -3164,7 +3240,7 @@ function pickSeat(sx, sy) { // 拖曳的目標：各區的座位（有人或空�
   for (const s of M.seats.values()) { if (!s.zone) continue; const g = geo(s); const p = t2s(g.cx, g.cy, 10), d = Math.hypot(sx - p.x, sy - (p.y - 12 * cam.z)); if (d < rad && d < bd) { bd = d; best = s; } }
   return best;
 }
-const canDrag = e => !ARRG.editing() && e && e.kind === 'bot' && !e.gone && e.id !== M.primaryId && !e.walk && e.seatKey && e.seatKey.startsWith('z:');
+const canDrag = e => !APP && !ARRG.editing() && e && e.kind === 'bot' && !e.gone && e.id !== M.primaryId && !e.walk && e.seatKey && e.seatKey.startsWith('z:');
 const ptrs = new Map(); let drag = null, pinch = null, lpTimer = 0;
 function enterSeatDrag(sx, sy) { drag.mode = 'seat'; drag.x = sx; drag.y = sy; cv.classList.add('seat'); updateSeatTarget(sx, sy); kick(); }
 function updateSeatTarget(sx, sy) { const e = M.ents.get(drag.key), s = pickSeat(sx, sy); drag.target = s && s.key !== e.seatKey ? s : null; drag.ok = !!drag.target && (zoning === 'custom' || M.rooms.get(drag.target.room).team === e.who.team) && !(drag.target.occ && drag.target.occ.walk); }
@@ -3193,11 +3269,11 @@ cv.addEventListener('pointermove', e => {
 const endPtr = e => {
   clearTimeout(lpTimer); const d = drag; ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; cv.classList.remove('drag', 'seat');
   if (d && d.mode === 'seat') { if (e.type === 'pointerup' && d.target && d.ok) swapSeat(d.key, d.target); else if (e.type === 'pointerup' && d.target) toast('不同團隊不能換位子（團隊由 bot 設定決定）'); drag = null; kick(); return; }
-  if (d && !d.moved && e.type === 'pointerup') { const pl = pileAtPt(e.clientX, e.clientY); if (pl) { openPile(pl); if (!ptrs.size) drag = null; return; } const s = pick(e.clientX, e.clientY); if (s) { if (follow === s.key) { followCam = true; kick(); } else startFollow(s.key); } else { const o = wallObjAt(e.clientX, e.clientY); if (o) openView(o); } }
+  if (d && !d.moved && e.type === 'pointerup') { const pl = pileAtPt(e.clientX, e.clientY); if (pl) { openPile(pl); if (!ptrs.size) drag = null; return; } const s = pick(e.clientX, e.clientY); const prevSign = hoverSign; if (e.pointerType !== 'mouse') hoverSign = null; if (s) { if (follow === s.key) { followCam = true; kick(); } else startFollow(s.key); } else { const o = wallObjAt(e.clientX, e.clientY); if (o) openView(o); else if (e.pointerType !== 'mouse') { const hs = signAt(e.clientX, e.clientY); hoverSign = hs && hs !== prevSign ? hs : null; kick(); } } }   // 觸控沒有 hover：點名牌展開第二行，再點（或點別處）收回
   if (!ptrs.size) drag = null;
 };
 cv.addEventListener('pointerup', endPtr); cv.addEventListener('pointercancel', endPtr);
-cv.addEventListener('pointerleave', () => { if (hoverKey || hoverObj || hoverPile || hoverSign) { hoverKey = null; hoverObj = null; hoverPile = null; hoverSign = null; cv.classList.remove('pt'); kick(); } });
+cv.addEventListener('pointerleave', ev => { if (ev.pointerType !== 'mouse') return; if (hoverKey || hoverObj || hoverPile || hoverSign) { hoverKey = null; hoverObj = null; hoverPile = null; hoverSign = null; cv.classList.remove('pt'); kick(); } });
 cv.addEventListener('wheel', e => { e.preventDefault(); kick(); zoomAt(Math.exp(-e.deltaY * .0015), e.clientX, e.clientY); }, { passive: false });
 function swapSeat(key, target) {
   const e = M.ents.get(key), from = M.seats.get(e.seatKey), other = target.occ && target.occ !== e ? target.occ : null;
@@ -3327,7 +3403,7 @@ function crowded(list, maxR) {   // 有誰跑出畫面，或兩兩之間貼不�
 }
 function fitTop() {
   if (document.body.classList.contains('searching')) return;   // 搜尋框展開時是蓋在列上的，不算
-  const top = $('#top'), maxR = innerWidth - (document.body.classList.contains('embedded') ? 52 : 0);   // 嵌在 ShellBot：右上角是它的關閉鈕
+  const top = $('#top'), maxR = innerWidth - (document.body.classList.contains('embedded') && !APP ? 52 : 0);   // 嵌在 ShellBot：右上角是它的關閉鈕
   const els = [$('.mark'), $('.brand b'), $('.brand .tag'), ...$$('#stats .stat'), ...$('#topRight').children];
   let n = 0;
   for (; n < TOP_FIT.length; n++) {
@@ -3782,7 +3858,7 @@ window.__office = {
   const saved = store.get('mode', null), m = saved === 'flat' || saved === 'iso' ? saved : (narrow || weak ? 'flat' : 'iso');
   V.to = V.m = V.from = m === 'flat' ? 0 : 1; V.k = 1;
   $$('#mode button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.m === m)));
-  if (store.get('legendMin', narrow)) { $('#legend').classList.add('min'); $('#legendToggle').textContent = '展開'; $('#legendToggle').setAttribute('aria-expanded', 'false'); }
+  if (store.get('legendMin', narrow || (APP && innerHeight <= 520))) { $('#legend').classList.add('min'); $('#legendToggle').textContent = '展開'; $('#legendToggle').setAttribute('aria-expanded', 'false'); }
   if (Object.keys(overrides()).length) $('#resetSeats').hidden = false;
   W = innerWidth; H = innerHeight; V.tp = wantTp();
   if (!HOST) OBJ.setObjects(OfficeObjects.DEMO_OBJECTS(tr));   // 單獨打開：示範的家具
