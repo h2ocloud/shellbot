@@ -2088,6 +2088,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
     if (usageList) {
       usageList.innerHTML = t('usageItems').map(s => `<li>${s}</li>`).join('');
     }
+    // the parts other files draw in the page's language (the entry row, the board button, the foot's words) redraw on this
+    try { document.dispatchEvent(new CustomEvent('sf-lang', { detail: lang })); } catch (_) { /* old engine */ }
   }
 
   // 同一支 CLI 的幾個啟動器（雲端／地端閘門／帶不同旗標）在平面清單裡只差一個
