@@ -93,10 +93,17 @@ console.log('bots off');
 const off = O.build({ botsOn: false, roster, tabs, seen: {}, kit, now });
 check('no bots; every AI tab is an intern', off.bots.length === 0 && off.temps.map(q => q.id).join() === 's1,s2,s3', off.temps.map(q => q.id));
 
+check('every bot says whether it has a tab to open (tab: a bot asleep has none); the sid itself stays out',
+  B.chief.tab === true && B.eng.tab === true && B.res.tab === false && snap.bots.every(b => !('sid' in b)), snap.bots.map(b => [b.id, b.tab]));
+check('…and so does an intern', snap.temps.length > 0 && snap.temps.every(x => x.tab === true), snap.temps);
+
 console.log('peers');
 const P = snap.peers[0];
 check('a paired machine: its bots but the external one, asleep kept', P.id === 'p1' && P.name === '示範電腦'
   && P.bots.map(b => `${b.id}:${b.state}`).join() === 'b:working,c:asleep', P.bots);
+const withSid = O.build({ botsOn: true, roster, tabs, peers: { p1: Object.assign({}, peers.p1, { bots: peers.p1.bots.map(b => Object.assign({}, b, { sid: 'r-' + b.role })) }) }, seen: {}, kit, now }).peers[0];
+check('…a bot of theirs has a tab to open when their row names one (sid) and it is not asleep; their interns always do',
+  P.bots.map(b => `${b.id}:${b.tab}`).join() === 'b:false,c:false' && withSid.bots.map(b => `${b.id}:${b.tab}`).join() === 'b:true,c:false' && P.temps.every(x => x.tab === true), [P.bots, withSid.bots]);
 check('…its interns, a question kept', P.temps.length === 1 && P.temps[0].state === 'decision' && P.temps[0].cli === 'Codex', P.temps);
 
 check('…the primary bot says so (exactly the row that is primary)', P.bots[0].primary === true && P.bots[1].primary === false, P.bots.map(b => b.primary));

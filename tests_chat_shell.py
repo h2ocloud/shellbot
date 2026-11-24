@@ -423,7 +423,7 @@ calls = set(re.findall(r"(?:api\(\)|\ba)\.([a-z_]+)\(", src))
 missing = sorted(c for c in calls if not callable(getattr(Api, c, None)))
 check(f"all {len(calls)} js_api calls exist ({', '.join(sorted(calls))})", calls and not missing, missing)
 check("the view's three routes are on the Api", all(callable(getattr(Api, m, None)) for m in ("chat_view", "chat_send", "chat_answer")))
-page = re.search(r"const CHAT_PROVIDERS = \[([^\]]*)\]", src)
+page = re.search(r"const CHAT_PROVIDERS = \[([^\]]*)\]", (HERE / "web" / "chat_rules.js").read_text(encoding="utf-8"))
 check("the providers the page draws are the backend's", page is not None
       and [x.strip(" '") for x in page.group(1).split(",")] == list(api_chat.CHAT_PROVIDERS), page and page.group(1))
 

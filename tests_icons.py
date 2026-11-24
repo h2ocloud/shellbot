@@ -117,8 +117,8 @@ print("4. protocol and content keep their characters")
 py = {p.name: read(p) for p in HERE.glob("*.py") if not p.name.startswith("tests_")}
 check("the mic's voice label sent to the tab still starts 🎙[", any("🎙[" in t for t in py.values()))
 check("Telegram's confirm button still says ✅ Apply", any("✅ Apply" in t for t in py.values()))
-check("the [[SF:…]] markers are untouched in the page's parser", "[[\\s*SF" in SRC["chat.js"] or "SF\\s*:" in SRC["chat.js"])
-check("the yellow marker still reads ⏳ in a preview (the Python rule's twin)", "'⏳ '" in SRC["chat.js"] and '"⏳ "' in py["agent_link.py"])
+check("the [[SF:…]] markers are untouched in the page's parser", "[[\\s*SF" in SRC["chat_rules.js"] or "SF\\s*:" in SRC["chat_rules.js"])
+check("the yellow marker still reads ⏳ in a preview (the Python rule's twin)", "'⏳ '" in SRC["chat_rules.js"] and '"⏳ "' in py["agent_link.py"])
 check("the preset icon picker still offers its emoji", "'🚀'" in SRC["index.html"] and "'🤖'" in SRC["index.html"])
 check("the bot avatars (emoji the person picked) are not touched: bots.py keeps its default preset icons", "🚀" in py["main.py"])
 

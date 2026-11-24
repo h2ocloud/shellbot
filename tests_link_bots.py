@@ -5,7 +5,7 @@ Asked for by the iOS app (its M3 waits on it): every bot with its face, where it
 what it is doing, every tab's face, state, last answer and latest line, by the desktop's
 own rules, and the question a tab waits on with its options.
 
-  - a face nobody picked is the page's defaultAvatar to the bit (the real web/bots.js
+  - a face nobody picked is the page's defaultAvatar to the bit (the real web/bots.js and bots_kit.js
     runs in node beside the Python one)
   - bots: awake / asleep / external, the tab, its place, what it does, the model; an
     external bot's webhook never leaves the computer
@@ -74,12 +74,12 @@ if node:
           "const ctx = {window: {}, document: {readyState: 'loading', addEventListener() {}, documentElement: {lang: 'en'}},"
           " localStorage: {getItem() { return null; }, setItem() {}}, console, navigator: {platform: 'MacIntel'}};"
           "ctx.window.document = ctx.document; vm.createContext(ctx);"
-          "vm.runInContext(fs.readFileSync(process.argv[1], 'utf8'), ctx);"
+          "for (const f of process.argv.slice(1)) vm.runInContext(fs.readFileSync(f, 'utf8'), ctx);"
           "const seeds = JSON.parse(fs.readFileSync(0, 'utf8'));"
           "const B = ctx.window.SFBots;"
           "console.log(JSON.stringify({avatars: seeds.map(s => B.defaultAvatar(s)), shapes: Object.keys(B.SHAPES),"
           " palette: B.PALETTE}));")
-    r = subprocess.run([node, "-e", js, str(HERE / "web" / "bots.js")], input=json.dumps(SEEDS),
+    r = subprocess.run([node, "-e", js, str(HERE / "web" / "bots_kit.js"), str(HERE / "web" / "bots.js")], input=json.dumps(SEEDS),
                        capture_output=True, text=True, timeout=30)
     out = json.loads(r.stdout or "{}")
     page = out.get("avatars") or []
