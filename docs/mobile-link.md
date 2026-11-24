@@ -390,6 +390,7 @@ App 用 WKWebView 開這台的 `web/office.html`，和桌面版的辦公室是�
 - `{op:'call', method:'POST', path:'/link/office/api', body}`：回一個一定 resolve 的 Promise。傳輸失敗回 `{success:false, code}`，`code` 是 `offline`／`timeout`／`bad_signature`／`not_allowed`／`http`。
 - `{op:'native', name, args}`：App 去做，不回值。`openChat {key, sid, peer, rsid}`（這台的人帶 `sid`；隔壁電腦的人帶 `peer`＝那台的 frame id 和 `rsid`，只有 App 也配對了那台才送）、`editBot {role}`、`openUrl {url}`（只有 http/https）、`close {}`。
 - `{op:'ready', v}`：第一個畫面畫好了。`{op:'error', why}`：`app_too_old`、`no_snapshot`（30 秒內沒拿到資料）、`script`、`off`。
+- `script` 帶 `message`、`source`（檔名）、`line`、`col`。畫面還沒畫出來時出錯，頁面有 5 秒可以照樣畫；5 秒內沒畫出來才送 `script`，送了之後不會再送 `ready`。已經畫好之後的零星錯誤送 `{op:'error', why:'script', fatal:false, …}`（同一則只送一次，最多 5 則），辦公室照常運作，App 不要關掉頁面。WebKit 的「ResizeObserver loop completed with undelivered notifications」只是排版警告，不送。
 - App 在頁面的 script 開始前注入 `window.SFOfficeApp = {v, lang, uiScale, idiom, prefs, pairedIds, caps:{editBot, openChat}}`。頁面會在上面掛 `active(bool)`：App 進背景時呼叫 `false` 停止輪詢，回前景時呼叫 `true` 馬上再抓。
 - 輪詢：`office_tabs`、`link_peer_bots` 每 3 秒；`tasks_overview`、`link_peer_tasks` 每 9 秒；`bots_state`、`office_objects` 每 30 秒。一次只跑一輪；失敗時保留上一份資料，`offline`／`timeout` 會把間隔拉長，最多 30 秒。
 

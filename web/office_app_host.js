@@ -44,7 +44,7 @@
   'use strict';
 
   const BRIDGE = 1;                         // the bridge version this file speaks (/link/ping office.bridge)
-  const TICK_MS = 3000, TASKS_MS = 9000, OBJECTS_MS = 30000, BOTS_MS = 30000, BACKOFF_MAX = 30000, FIRST_MS = 30000;
+  const TICK_MS = 3000, TASKS_MS = 9000, OBJECTS_MS = 30000, BOTS_MS = 30000, BACKOFF_MAX = 30000, FIRST_MS = 30000, SCRIPT_GRACE_MS = 5000;
   const SHARED_KEYS = ['seats', 'items', 'groups', 'arrange'];   // this computer's own, read only here
   const clone = v => (v == null ? v : JSON.parse(JSON.stringify(v)));
   const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -250,17 +250,46 @@
       try { O = win.Office; } catch (_) { O = null; }
       if (!O || typeof O.update !== 'function') return false;
       const snap = snapshot();
-      try { O.update(snap); } catch (e) { fail('script'); return true; }
+      try { O.update(snap); } catch (e) { scriptError({ message: e && e.message, error: e }); return true; }
       lastSnap = snap;
-      if (!ready) { ready = true; clearT(readyTimer); readyTimer = 0; post({ op: 'ready', v: app().v }); }
+      if (!ready && !failed) {
+        ready = true; clearT(readyTimer); readyTimer = 0; clearT(heldTimer); heldTimer = 0;
+        post({ op: 'ready', v: app().v });
+        if (held) { tell(held); held = null; }          // an error before the drawing that did not stop it
+      }
       return true;
     }
-    function fail(why) {
+    // The end of the page for the app: once, and never followed by a `ready` (the app would draw a page it was told is broken).
+    function fail(why, detail) {
       if (failed) return;
       failed = true;
       clearT(readyTimer); readyTimer = 0;
-      post({ op: 'error', why });
+      post(Object.assign({ op: 'error', why }, detail || {}));
       if (why === 'off' || why === 'app_too_old') stop();
+    }
+    // A script error on the page is reported, and only ends the page when the room cannot be drawn. A stray error (a
+    // handler, a timer, something the app injected) leaves the room on screen: once ready, each is posted with fatal:false
+    // (at most 5 different messages, for the app's debug view). Before the first drawing the page gets SCRIPT_GRACE_MS to
+    // draw anyway (the next round tries again); if it has not, that first error ends it. WebKit's "ResizeObserver loop
+    // completed with undelivered notifications" is a warning about layout, not an error, and is not passed on at all.
+    const said = [];
+    let held = null, heldTimer = 0;
+    function scriptError(ev) {
+      const msg = String((ev && ev.message) || (ev && ev.error && ev.error.message) || '').slice(0, 300);
+      if (/ResizeObserver loop/i.test(msg) || failed) return;
+      const src = String((ev && ev.filename) || '').split(/[\\/]/).pop().slice(0, 80);
+      const detail = { message: msg, source: src, line: Number(ev && ev.lineno) || 0, col: Number(ev && ev.colno) || 0 };
+      if (!ready) {
+        if (!held) held = detail;
+        if (!heldTimer) heldTimer = setT(() => { heldTimer = 0; if (!ready) fail('script', held); }, SCRIPT_GRACE_MS);
+        return;
+      }
+      tell(detail);
+    }
+    function tell(detail) {
+      if (failed || said.length >= 5 || said.indexOf(detail.message) >= 0) return;
+      said.push(detail.message);
+      post(Object.assign({ op: 'error', why: 'script', fatal: false }, detail));
     }
 
     // ── the rounds ────────────────────────────────────────────────────────────
@@ -341,7 +370,7 @@
       if (!a) return false;
       a.active = active;
       if (!(Number(a.v) >= BRIDGE)) { fail('app_too_old'); return false; }
-      try { win.addEventListener('error', () => fail('script')); } catch (_) { /* no events */ }
+      try { win.addEventListener('error', ev => scriptError(ev)); } catch (_) { /* no events */ }
       readyTimer = setT(() => { if (!ready) fail('no_snapshot'); }, FIRST_MS);
       start();
       return true;

@@ -250,7 +250,38 @@ function world(opts) {
   check('…and once Office.update exists the snapshot is drawn and ready sent', wl.updates.length === 1 && wl.posted('ready').length === 1);
   const ws = world({ updateThrows: true });
   ws.h.init(); await flush();
-  check('Office.update throwing → error script, once', JSON.stringify(ws.posted('error')) === '[{"op":"error","why":"script"}]' && ws.posted('ready').length === 0, ws.sent.filter(m => m.op !== 'call'));
+  check('Office.update throwing before the first drawing: nothing yet, the page gets the grace time', ws.posted('error').length === 0 && ws.posted('ready').length === 0);
+  await ws.fire(5000);
+  check('…not drawn within it → error script once, with the message', JSON.stringify(ws.posted('error')) === '[{"op":"error","why":"script","message":"boom","source":"","line":0,"col":0}]'
+    && ws.posted('ready').length === 0, ws.sent.filter(m => m.op !== 'call'));
+  ws.win.Office.update = s => ws.updates.push(s);
+  await ws.fire(3000);
+  check('…and a later drawing does not send ready after that error (the app was told the page is broken)', ws.posted('ready').length === 0);
+
+  console.log('script errors on a drawn page (a stray error must not take the room away)');
+  const we = world();
+  we.h.init(); await flush();
+  const onErr = ev => we.errors.find(e => e[0] === 'error')[1](ev);
+  check('drawn: ready posted', we.posted('ready').length === 1);
+  onErr({ message: 'ResizeObserver loop completed with undelivered notifications.', filename: 'sfoffice://office/office.html', lineno: 1, colno: 1 });
+  check('WebKit\'s ResizeObserver loop warning is not passed on', we.posted('error').length === 0);
+  onErr({ message: "TypeError: undefined is not an object (evaluating 'x.y')", filename: 'sfoffice://office/office.html', lineno: 3001, colno: 17 });
+  check('another error after ready: posted with fatal:false, the message, the file and the line',
+    JSON.stringify(we.posted('error')) === JSON.stringify([{ op: 'error', why: 'script', fatal: false, message: "TypeError: undefined is not an object (evaluating 'x.y')", source: 'office.html', line: 3001, col: 17 }]), we.posted('error'));
+  onErr({ message: "TypeError: undefined is not an object (evaluating 'x.y')", filename: 'sfoffice://office/office.html', lineno: 3001, colno: 17 });
+  for (let i = 0; i < 8; i++) onErr({ message: 'E' + i, filename: 'office.html', lineno: i });
+  check('…the same message once; at most 5 different ones', we.posted('error').length === 5, we.posted('error').length);
+  const callsBefore = we.calls().length;
+  await we.fire(3000);
+  check('…and the room goes on: still polling, no second ready', we.calls().length > callsBefore && we.posted('ready').length === 1);
+  const wh = world({ noOffice: true });
+  wh.h.init(); await flush();
+  wh.errors.find(e => e[0] === 'error')[1]({ message: 'early', filename: 'office.html', lineno: 5, colno: 1 });
+  wh.win.Office = { update: s => wh.updates.push(s) };
+  await wh.fire(100);
+  check('an error before the drawing that did not stop it: ready, then the error as fatal:false',
+    wh.posted('ready').length === 1 && JSON.stringify(wh.posted('error')) === '[{"op":"error","why":"script","fatal":false,"message":"early","source":"office.html","line":5,"col":1}]', wh.sent.filter(m => m.op !== 'call'));
+  check('…and its grace timer is gone (no late error)', !wh.live().some(t => t.ms === 5000));
 
   console.log('the page file: nothing without the app, the globals with it');
   const src = fs.readFileSync(W('office_app_host.js'), 'utf8');
