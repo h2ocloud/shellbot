@@ -129,6 +129,8 @@ for lang in ("en", "zh"):
               "sfctl bots" in on and (("Telegram said does not count" in on) if lang == "en" else ("Telegram 說的不算" in on)))
         check(f"{tag}: the length rule (first sentence {bots.RESP_HEAD_MAX}, whole {bots.RESP_MAX})",
               str(bots.RESP_HEAD_MAX) in on and str(bots.RESP_MAX) in on)
+        check(f"{tag}: one paragraph, no list, no dated single jobs (a live haiku bot wrote a list and a dated job into it)",
+              ("one paragraph, no list, no dates or single jobs" in on) if lang == "en" else ("寫成一段話，不條列，不寫日期或做過的單件事" in on))
         check(f"{tag}: 'nothing else' lets it touch skills/ and bots-self", "skills/" in on.split("\n")[-1] and "bots-self" in on.split("\n")[-1], on.split("\n")[-1])
         check(f"{tag}: with the tidy-up too, both are allowed, in one parenthesis",
               "memory/" in both.split("\n")[-1] and "bots-self" in both.split("\n")[-1]

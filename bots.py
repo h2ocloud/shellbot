@@ -533,12 +533,13 @@ def review_step(role, entry, lang=None) -> str:
         (f"now: \"{resp}\". Where it has drifted from what you really do, rewrite it; where it has not, leave it. "
          if resp else "not written yet. Write your first one: what you look after, what you do often, what is not yours. ")
         + "Keep the work the user gave you, and do not take over another bot's (`sfctl bots`). "
-        f"Its first sentence must stand alone (at most {h} characters: other bots see only that), the whole at most {m}. "
-        "Write it with `sfctl bots-self --job \"…\"`.",
+        f"Its first sentence must stand alone (at most {h} characters: other bots see only that), the whole at most {m}: "
+        "one paragraph, no list, no dates or single jobs you did (those go in MEMORY.md). Write it with `sfctl bots-self --job \"…\"`.",
         (f"現在是「{resp.rstrip('。.')}」。跟你實際在做的事有落差就改寫，沒有就不動。" if resp
          else "還沒寫。寫第一版：你負責什麼、常做哪些事、哪些不歸你。")
         + "保留使用者交給你的範圍，不接手別的 bot 的事（`sfctl bots` 看）。"
-        f"第一句要能單獨讀懂（{h} 字內，別的 bot 只看得到這句），整段 {m} 字內。用 `sfctl bots-self --job \"…\"` 寫入。", lang)
+        f"第一句要能單獨讀懂（{h} 字內，別的 bot 只看得到這句），整段 {m} 字內：寫成一段話，不條列，不寫日期或做過的單件事（那些記在 MEMORY.md）。"
+        "用 `sfctl bots-self --job \"…\"` 寫入。", lang)
     return sf_lang.pick(
         f"Today's first save, so once a day also look at who you are, from MEMORY.md and the latest summaries in {d}:\n"
         f"   - Your job: {job}\n"
