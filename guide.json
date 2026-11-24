@@ -30,6 +30,7 @@
   },
   "no_guide": {},
   "added_without_guide": {
+    "0.64.0": "GitHub and Figma are more rows on the Connect page, which the connect entry points to; the usage pill and the accounts panel now show the same numbers, nothing new on the screen; `sfctl call` is a command for the AI tabs.",
     "0.63.1": "The paired computer's own presets appear as the buttons of the existing New session dialog for that computer; no new place on the screen to point at.",
     "0.63.0": "The temperatures are new lines on the ops TVs and a section of the ops detail window, inside the office (an iframe the tour cannot point into); the office-ops entry covers the ops board.",
     "0.45.3": "Frame Link routes for the phone app (usage and pace, a queued message sent now or withdrawn, pictures sent with a message); nothing new on the desktop's screen. The app's own guide entries come with its build.",
