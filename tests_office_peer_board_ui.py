@@ -380,7 +380,8 @@ def run_demo(browser, base, engine):
     page.mouse.click(pt["x"], pt["y"])
     page.wait_for_timeout(600)
     check("…that opens with demo tasks, read-only", page.evaluate("__office.view()") == "board" and page.evaluate("document.querySelectorAll('#vBody .nt').length") == 5
-          and page.evaluate("document.getElementById('vTitle').textContent") == "隔壁：示範電腦 的白板")
+          and page.evaluate("document.getElementById('vTitle').textContent") == (
+              "隔壁：示範電腦 的白板" if page.evaluate("/^zh/i.test(navigator.language)") else "Next door: 示範電腦's board"))   # in the page's language
     page.click('#vBody .nt .nb')
     page.wait_for_timeout(400)
     check("…its card has the 「跟 示範建置員 說」 button", page.evaluate("!!document.querySelector('#vOver [data-act=tellmain]')")
