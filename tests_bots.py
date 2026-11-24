@@ -574,6 +574,55 @@ called = set(re.findall(r"api\(\)\.([A-Za-z_]\w*)\(", js)) | set(re.findall(r"\b
 missing = sorted(n for n in called if not hasattr(Api, n))
 check(f"every backend call bots.js makes exists ({len(called)})", called and not missing, missing)
 
+print("memory/ topic files in the wake-up brief")
+bots.ensure_dirs("Topics")
+tdir = bots.topics_dir("Topics")
+check("no memory/ folder, or an empty one: no section, and the brief is what it was", bots.topics_brief("Topics") == ""
+      and bots.compose_brief("x", {}, {}, topics=bots.topics_brief("Topics")) == bots.compose_brief("x", {}, {}))
+tdir.mkdir(parents=True)
+check("…an empty folder too", bots.topics_brief("Topics") == "")
+(tdir / "deploy.md").write_text("\n\n# 部署步驟\n1. 先備份\n", encoding="utf-8")
+(tdir / "clients.md").write_text("沒有標題的第一行，" + "很長" * 40 + "\n", encoding="utf-8")
+(tdir / ".hidden.md").write_text("# hidden\n", encoding="utf-8")
+(tdir / "readme.txt").write_text("not markdown\n", encoding="utf-8")
+(tdir / "sub").mkdir()
+(tdir / "sub" / "deep.md").write_text("# deep\n", encoding="utf-8")
+tb = bots.topics_brief("Topics")
+lines = tb.splitlines()
+check("the section names the folder and says read when needed, not loaded for you",
+      str(tdir) in lines[0] and "需要時再讀" in lines[0] and "不會自動帶進來" in lines[0], lines[0])
+check("one line per file, by name: its first heading, else its first 60 characters; no hidden file, no .txt, no sub folder",
+      lines[1:] == ["- clients.md：沒有標題的第一行，" + ("很長" * 40)[:60 - len("沒有標題的第一行，")], "- deploy.md：部署步驟"], lines)
+brief_t = bots.compose_brief("x", {}, {}, memory="M1", last="L1", topics=tb)
+check("it follows MEMORY.md and comes before the last summary",
+      brief_t.index("M1") < brief_t.index(lines[0]) < brief_t.index("L1")
+      and brief_t.replace("\n\n" + tb, "", 1) == bots.compose_brief("x", {}, {}, memory="M1", last="L1"))
+os.environ["SHELLFRAME_PROMPT_LANG"] = "en"
+tb_en = bots.topics_brief("Topics", "en")
+check("in English", tb_en.splitlines()[0] == f"── Memory detail files in {tdir} (read one when you need it; they are not loaded for you) ──"
+      and tb_en.splitlines()[1].startswith("- clients.md: "), tb_en)
+os.environ["SHELLFRAME_PROMPT_LANG"] = "zh"
+for n in range(45):
+    (tdir / f"t{n:02d}.md").write_text(f"# 主題{n}\n", encoding="utf-8")
+tb = bots.topics_brief("Topics")
+lines = tb.splitlines()
+check("at most 30 files are named, and the rest are counted: （還有 N 個）",
+      sum(1 for ln in lines if ln.startswith("- ")) == bots.TOPICS_MAX == 30 and lines[-1] == "（還有 17 個）", (len(lines), lines[-1]))
+check("…in English: (and N more)", bots.topics_brief("Topics", "en").splitlines()[-1] == "(and 17 more)")
+for n in range(30):
+    (tdir / f"z{n:02d}.md").write_text("很長的標題" * 30 + "\n", encoding="utf-8")
+tb = bots.topics_brief("Topics")
+lines = tb.splitlines()
+check(f"the whole section stays within {bots.TOPICS_BRIEF_CAP} characters, and still counts what it left out",
+      len(tb) <= bots.TOPICS_BRIEF_CAP and lines[-1].startswith("（還有 ") and lines[-1].endswith(" 個）")
+      and sum(1 for ln in lines if ln.startswith("- ")) + int(re.search(r"\d+", lines[-1]).group()) == len(bots.topic_files("Topics")), (len(tb), lines[-1]))
+check("…in English too", len(bots.topics_brief("Topics", "en")) <= bots.TOPICS_BRIEF_CAP)
+(TMP / "outside-topic.md").write_text("# outside\n", encoding="utf-8")
+(tdir / "0link.md").symlink_to(TMP / "outside-topic.md")
+check("a link that leads out of memory/ is not listed", "0link.md" not in bots.topics_brief("Topics") and (tdir / "0link.md") not in bots.topic_files("Topics"))
+check("the MEMORY.md cap is untouched by them (read_memory only reads MEMORY.md and the summary)",
+      bots.read_memory("Topics")[0] == "" and bots.MEMORY_CAP == 6000)
+
 print(f"\nResults: {passed} passed, {failed} failed")
 print("ALL PASS" if not failed else f"{failed} FAILED")
 srv.shutdown()

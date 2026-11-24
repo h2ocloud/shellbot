@@ -1610,6 +1610,12 @@
               '分鐘，就會請它更新記憶（它資料夾裡的 MEMORY.md 和一份摘要），一直開著不關的 Bot 也記得住。每次是 Bot 自己的一輪對話，跟你傳一則訊息一樣會用掉額度；它在跑、在等你回答、或輸入框有你還沒送出的字時，都不會送。關掉：只有分頁關閉時才寫記憶。')}</div></div>
         <div class="sx-ctl"><button class="toggle-switch" id="setting-bot-memory-autosave"></button></div>
       </div>
+      <div class="sx-row" id="sfb-memcompact" style="display:none">
+        <div class="sx-txt"><div class="sx-label">${t('Tidy a bot’s memory when it is nearly full', '記憶快滿時自動整理')}</div>
+          <div class="sx-hint">${t('When MEMORY.md is over 80% full, the round that saves memory also moves the details into topic files under memory/, so MEMORY.md keeps only the key points and an index.',
+            'MEMORY.md 超過 80% 時，存記憶那一輪順便把細節搬到 memory/ 底下的主題檔，MEMORY.md 只留重點和索引。')}</div></div>
+        <div class="sx-ctl"><button class="toggle-switch" id="setting-bot-memory-compact"></button></div>
+      </div>
       <div class="sx-row">
         <div class="sx-txt"><div class="sx-label">${t('A2A: bots message each other by name (experimental)', 'A2A：bot 之間用名字互相傳話（實驗）')}</div>
           <div class="sx-hint">${t('The AI in a tab can send work or a note to another bot by its name (sfctl a2a-send, [[SF:TO:name|…]]), here or on a paired computer, and hand off a task that reports back. Off by default.',
@@ -1652,6 +1658,8 @@
       memMin.value = mins;                                  // the box shows what was kept (it has the focus: syncSettings leaves it alone)
       saveSettings({ bot_memory_idle_min: mins });
     });
+    const memCompact = panel.querySelector('#setting-bot-memory-compact');
+    memCompact.addEventListener('click', () => saveSettings({ bot_memory_compact: !memCompact.classList.contains('on') }));
     const a2a = panel.querySelector('#setting-experimental-a2a');
     a2a.addEventListener('click', async () => {
       const cfg = host() && host().cfg();
@@ -1681,6 +1689,12 @@
       const mins = Number(set.bot_memory_idle_min);
       if (document.activeElement !== inp) inp.value = set.bot_memory_idle_min == null || !Number.isFinite(mins) ? 45 : Math.max(5, Math.min(1440, Math.round(mins)));
       inp.disabled = !on;
+    }
+    const cBox = document.getElementById('sfb-memcompact');
+    if (cBox) {
+      cBox.style.display = enabled ? '' : 'none';
+      const set = (cfg && cfg.settings) || {};
+      document.getElementById('setting-bot-memory-compact').classList.toggle('on', set.bot_memory_compact !== false);   // on unless turned off (bots.compact_enabled)
     }
     const root = document.getElementById('sfb-settings-root');
     if (root) root.textContent = st.memory_root ? t('Memory folder: ', '記憶資料夾：') + st.memory_root : '';

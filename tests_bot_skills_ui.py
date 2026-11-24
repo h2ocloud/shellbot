@@ -9,7 +9,8 @@ tests_bot_memory.py).
     skill's), delete (asked first, in the page's own question; "no" changes nothing)
   - a bot that does not exist yet and a bot outside ShellBot say where its skills go instead of offering them
   - Settings → Bots: the memory-saving switch (on by default) and the idle minutes (5 to 1440), both saved
-    with the other settings, and the words that say it uses quota
+    with the other settings, and the words that say it uses quota; the tidy-up switch under it (on by default,
+    screenshot qa-shots/bots-memory-compact-setting.png)
 
 Demo data only. Screenshots (WebKit only) go to qa-shots/botskills-*.png. Needs playwright; SKIP without it.
 Run: .venv/bin/python tests_bot_skills_ui.py
@@ -164,6 +165,26 @@ def run(browser, engine):
         check(f"typed {typed!r}: kept between 5 and 1440 (or 45), in the box too",
               page.evaluate("window.__cfg.settings.bot_memory_idle_min") == want and page.input_value("#setting-bot-memory-idle") == str(want),
               (page.evaluate("window.__cfg.settings.bot_memory_idle_min"), page.input_value("#setting-bot-memory-idle")))
+    # the tidy-up switch (bots.compact_enabled): on unless turned off, under the autosave one
+    text = page.inner_text("#sfb-memcompact")
+    check("compact: the switch is there, on by default, and says what it does",
+          page.locator("#setting-bot-memory-compact.on").count() == 1 and "記憶快滿時自動整理" in text and "80%" in text
+          and "memory/" in text and "主題檔" in text and "索引" in text, text)
+    check("compact: sits right under the autosave switch",
+          page.evaluate("document.getElementById('sfb-memsave').nextElementSibling.id") == "sfb-memcompact")
+    page.locator("#sfb-memcompact").scroll_into_view_if_needed()
+    if engine == "webkit":
+        page.locator("#sfb-memsave").locator("xpath=..").screenshot(path=str(SHOTS / "bots-memory-compact-setting.png"))
+    page.click("#setting-bot-memory-compact")
+    page.wait_for_timeout(150)
+    saved = page.evaluate("window.__cfg.settings")
+    check("compact: off is saved with the other settings", saved.get("bot_memory_compact") is False
+          and saved.get("bot_memory_autosave") is True and saved.get("experimental_bots") is True
+          and page.locator("#setting-bot-memory-compact.on").count() == 0, saved)
+    page.click("#setting-bot-memory-compact")
+    page.wait_for_timeout(150)
+    check("compact: …and on again", page.evaluate("window.__cfg.settings.bot_memory_compact") is True
+          and page.locator("#setting-bot-memory-compact.on").count() == 1)
     check("no page errors", not errors, errors)
     page.close()
 

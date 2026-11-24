@@ -254,6 +254,21 @@ one turn of the bot's own conversation: it uses quota like a message, which Sett
 into one line ("Memory updated", `web/chat.js`), cards and lists leave the request and `[[SF:MEMORY:SAVED]]` out, and the
 phone is not pushed "done" for it. Each request is logged: `autosave sid=… written=[…]` in the debug log.
 
+### Tidying a nearly full MEMORY.md
+
+`MEMORY.md` is handed over whole at wake-up, so it is capped (`bots.MEMORY_CAP`, 6000 characters), and asking a
+bot only to "keep it under the cap" leaves it at 95% to 100%. With `settings.bot_memory_compact` (on by default; the
+switch under the memory-saving one in Settings → Bots), when `MEMORY.md` is past `bots.MEMORY_NEAR_FULL` (80%) of the
+cap, both save requests (`bot_memory.prompt`, `bots.summary_prompt`) carry one more step (`bots.compact_step`): bring it
+down to `bots.MEMORY_COMPACT_TO` (60%) by moving the details into `memory/<topic>.md` in the bot's folder, merging
+into a file that is already there, and leaving one index line per topic in `MEMORY.md`. Below the line, or with the
+switch off, the requests are word for word what they were. The count is `bots.memory_chars` (the bookshelf's: characters
+with the ends trimmed). The topic files are not counted in the 6000 and are not handed over whole: the wake-up brief
+(`bots.topics_brief`) lists the folder and one line per file (its first heading or first 60 characters; 30 files and
+1,500 characters at most, then "and N more"), and the bot reads one when it needs it. A tab that closes with this step
+in its request is given up to `bots.COMPACT_WAIT_SEC` after the summary shows for the turn to end. The bookshelf lists the
+files (type "Memory detail") and offers "Ask … to tidy up" on a `MEMORY.md` past 80%.
+
 ## Primary bot and A2A
 
 The primary bot (the one marked `bot.primary`) is a conversation like any bot:
