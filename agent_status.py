@@ -1147,8 +1147,8 @@ def _norm_codex(o):
     ts = _parse_iso(o.get("timestamp"))
     if outer == "event_msg":
         if pt in ("task_started", "turn_started", "user_message"):
-            text = _content_text(p.get("message"))
-            return {"kind": "user_msg", "ts": _epoch(p.get("started_at")) or ts, "text": text} if text else None
+            # an empty one is kept: 9% of turns measured start with no user_message, and it marks the turn as begun
+            return {"kind": "user_msg", "ts": _epoch(p.get("started_at")) or ts, "text": _content_text(p.get("message"))}
         if pt in ("task_complete", "turn_complete"):
             return {"kind": "turn_end", "ts": _epoch(p.get("completed_at")) or ts}
         if pt in ("exec_approval_request", "apply_patch_approval_request"):

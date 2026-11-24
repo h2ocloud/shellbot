@@ -68,6 +68,14 @@ check("input_text blocks are normalized", normalized
       and normalized["text"] == "示範：區塊文字", normalized)
 
 
+# A turn that starts with no user_message (measured: 21 of 231 recent turns) still has its start: the state reader
+# takes the last event, and without this mark a turn just begun reads as the last one done.
+for kind in ("task_started", "turn_started"):
+    started = ag._norm_codex({"type": "event_msg", "timestamp": "2026-11-24T05:00:00Z", "payload": {"type": kind}})
+    check(f"{kind} with no words is still a turn's start (an empty user_msg)", started and started["kind"] == "user_msg"
+          and started["text"] == "", started)
+
+
 node_script = r"""
 const R = require('./web/chat.js');
 const tests = [
