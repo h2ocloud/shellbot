@@ -16,7 +16,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 QUIET_S = 60
-NOT_LOGGED = ("/link/input", "/link/resize")
+NOT_LOGGED = ("/link/input", "/link/resize", "/link/office/api")
 
 
 class JsonStore:

@@ -53,6 +53,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, quote
 
+import link_office
 import link_records
 from host_lookup import hostname_addresses as _hostname_addresses
 try:
@@ -964,9 +965,8 @@ class FrameLink:
 
                 if path == "/link/send":
                     if not link._peer_may_control(peer_id):
-                        return self._send(403, {"success": False,
-                            "message": "單向配對：這台是主控端，對方無權操作"},
-                            sign_for=peer, nonce=nonce)
+                        return self._send(403, {"success": False, "message": "單向配對：這台是主控端，對方無權操作"},
+                                          sign_for=peer, nonce=nonce)
                     res = link._local_send(body.get("sid", ""), body.get("text", ""),
                                            bool(body.get("submit", True)), source_peer=peer_id,
                                            ask_draft=bool(body.get("ask_draft")),       # docs/mobile-link.md (v0.44.2)
@@ -982,23 +982,21 @@ class FrameLink:
                     return self._send(200, res, sign_for=peer, nonce=nonce)
                 if path == "/link/input":
                     if not link._peer_may_control(peer_id):
-                        return self._send(403, {"success": False,
-                            "message": "單向配對：對方無權操作這台"},
-                            sign_for=peer, nonce=nonce)
+                        return self._send(403, {"success": False, "message": "單向配對：對方無權操作這台"},
+                                          sign_for=peer, nonce=nonce)
                     res = link._execute("raw_input", {
                         "sid": body.get("sid", ""),
                         "data": body.get("data", "")}) or {}
                     return self._send(200, res, sign_for=peer, nonce=nonce)
                 if path in ("/link/bots/wake", "/link/answer", "/link/bots/avatar", "/link/bots/settings", "/link/bots/primary",
-                            "/link/bots/keep", "/link/bots/rename", "/link/push/register", "/link/push/unregister", "/link/push/test", "/link/peer/name", "/link/ops/live"):
+                            "/link/bots/keep", "/link/bots/rename", "/link/push/register", "/link/push/unregister", "/link/push/test", "/link/peer/name", "/link/ops/live", "/link/office/api"):
                     cmd = path[6:].replace("/", "_")            # bots_wake, bots_keep, bots_rename, push_register, peer_name… (docs/mobile-link.md)
                     code, res = link._bots_route(peer_id, "bots_answer" if cmd == "answer" else cmd, body)
-                    return self._send(code, res, sign_for=peer, nonce=nonce)
+                    return self._send(res.pop("_http", code), res, sign_for=peer, nonce=nonce)    # a route may name its own status
                 if path == "/link/resize":
                     if not link._peer_may_control(peer_id):
-                        return self._send(403, {"success": False,
-                            "message": "單向配對：對方無權操作這台"},
-                            sign_for=peer, nonce=nonce)
+                        return self._send(403, {"success": False, "message": "單向配對：對方無權操作這台"},
+                                          sign_for=peer, nonce=nonce)
                     res = link._execute("resize_pty", {
                         "sid": body.get("sid", ""),
                         "cols": body.get("cols", 0),
@@ -1247,7 +1245,7 @@ class FrameLink:
                     return self._send(200, {
                         "success": True, "frame_id": link.frame_id(),
                         "name": link.frame_name(), "version": link._version,
-                        "ts": _now()}, sign_for=peer, nonce=nonce)
+                        "ts": _now(), "office": link_office.ping_fields(link._get_config())}, sign_for=peer, nonce=nonce)
                 if path == "/link/info":
                     if not link._peer_may_control(peer_id):
                         return self._send(200, {"success": True, "message": "0 sessions",
@@ -1391,6 +1389,8 @@ class FrameLink:
                     cmd = {"/link/bots": "bots_link", "/link/tasks": "tasks_link", "/link/ops": "ops", "/link/ops/view": "ops_view", "/link/presets": "presets_link"}.get(path, "push_status")
                     code, res = link._bots_route(peer_id, cmd, {k: (q.get(k) or [""])[0] for k in (("rev", "lang", "sort") if "/ops" in path else ("rev",))})
                     return self._send(code, res, sign_for=peer, nonce=nonce)
+                if path == "/link/office/asset":
+                    return link_office.serve_asset(self, link, peer_id, peer, nonce, q)
                 if path == "/link/events":
                     try:
                         since = int((q.get("since") or ["0"])[0])

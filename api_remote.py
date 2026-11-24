@@ -1419,6 +1419,8 @@ class RemoteApiMixin:
             return self._tasks_for_peer(args)
         elif cmd in ("ops", "ops_view", "ops_live"):      # GET /link/ops, /link/ops/view, POST /link/ops/live (link_ops)
             return self._link_ops(cmd, args)
+        elif cmd == "office_api":                     # POST /link/office/api (link_office)
+            return self._link_office(args)
         elif cmd == "bots_keep":
             return self._bots_link_keep(args)
         elif cmd == "bots_migrate":

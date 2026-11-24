@@ -20,6 +20,7 @@ import threading
 import time
 
 import agent_status
+import link_office
 import office_helpers
 import sf_config
 from api_host import main
@@ -90,6 +91,21 @@ class OfficeApiMixin:
             _swallow("office_prefs_save")
             return json.dumps({"success": False, "message": str(e)[:200]})
         return json.dumps({"success": True})
+
+    def office_tabs(self) -> str:
+        """This computer's tabs for the phone app's office page (link_office.tabs): the status monitor's last reading, no
+        transcript or screen read. Refused while the switch is off."""
+        if not self._office_on():
+            return json.dumps({"success": False, "code": "off", "tabs": [], "helpers": {}})
+        try:
+            return json.dumps(link_office.tabs(self, main.load_config(), time.time()), ensure_ascii=False)
+        except Exception as e:
+            _swallow("office_tabs")
+            return json.dumps({"success": False, "code": "error", "message": str(e)[:200], "tabs": [], "helpers": {}})
+
+    def _link_office(self, args: dict) -> dict:
+        """POST /link/office/api from a paired phone (api_remote's dispatcher; link_office has the table of calls)."""
+        return link_office.serve(self, self._office_on(), args)
 
     def office_helpers(self) -> str:
         if not self._office_on():
