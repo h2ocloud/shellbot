@@ -6,6 +6,29 @@
 > 撰寫規範見 [`docs/changelog-guide.md`](docs/changelog-guide.md)，
 > 由 `tests_changelog_format.py` 強制檢查。
 
+## v0.64.1 (2026-11-24)
+
+### Added
+
+- **A bot's memory tidies itself when it is nearly full.**
+  Reported: a bot's MEMORY.md sat at 95–100% of its 6,000 characters, so the bookshelf showed "nearly full" on almost
+  every bot. Settings → Bots has a new switch, "Tidy memory when it is nearly full" (on by default). While it is on and
+  MEMORY.md is over 80%, the save that already happens (when the bot has gone quiet, or before its tab closes) also
+  asks the bot to bring MEMORY.md down to 60%: details (steps, lists, long explanations, how finished work went) move
+  into topic files under the bot's `memory/` folder, and MEMORY.md keeps the rules, preferences, work in progress and a
+  one-line index entry per topic. Facts are moved, not deleted. A waking bot is told which topic files there are (name
+  and title, read when needed), so they do not count against the 6,000 characters. The bookshelf lists them as
+  "Memory detail" under each bot, and a nearly full MEMORY.md gets an "Ask … to tidy up" button for doing it now. With
+  the switch off, or under 80%, the save requests are word for word what they were. Covered by `tests_bot_memory.py`,
+  `tests_bots.py`, `tests_office_shelf.py` and `tests_office_objects_ui.py`.
+
+  **bot 的記憶快滿時會自己整理。** 回報：bot 的 MEMORY.md 長期停在 6,000 字的 95～100%，書櫃上幾乎每個 bot 都標「快滿了」。
+  設定 → Bots 多一個開關「記憶快滿時自動整理」（預設開）。開著而且 MEMORY.md 超過 80% 時，原本就會有的存記憶那一輪（bot 安靜下來時，
+  或分頁關閉前）會順便請 bot 把 MEMORY.md 整理到 60% 以內：細節（步驟、清單、長說明、做完的事的經過）搬到 bot 資料夾 `memory/` 底下的主題檔，
+  MEMORY.md 留下規則、偏好、進行中的事，每個主題一行索引。事實只搬不刪。bot 醒來時會知道有哪些主題檔（檔名和標題，需要時再讀），
+  所以不佔那 6,000 字。書櫃把它們列成各 bot 底下的「記憶細節」，快滿的 MEMORY.md 多一顆「請…整理」可以馬上做。
+  開關關著，或沒超過 80% 時，存記憶的要求和以前一字不差。
+
 ## v0.64.0 (2026-11-23)
 
 ### Added
