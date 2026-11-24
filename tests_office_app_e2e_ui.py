@@ -72,7 +72,7 @@ window.webkit = { messageHandlers: { sfoffice: { postMessage(m) {
   const f = A[m.body && m.body.method];
   return Promise.resolve(f ? { success: true, result: f(m.body.args || []) } : { success: false, code: 'no_method' });
 } } } };
-if (%s) window.SFOfficeApp = { v: 1, lang: 'zh-TW', uiScale: 1, idiom: 'pad', prefs: {}, pairedIds: ['PEER1'], caps: { editBot: true, openChat: true } };
+if (%s) window.SFOfficeApp = { v: 1, lang: 'zh-TW', uiScale: 1, idiom: 'pad', prefs: %s, pairedIds: ['PEER1'], caps: { editBot: true, openChat: true } };
 })();
 """
 
@@ -91,12 +91,12 @@ def serve():
     return srv
 
 
-def open_page(browser, base, *, app=True, off=False):
-    ctx = browser.new_context(viewport={"width": 1194, "height": 834}, locale="zh-TW")
+def open_page(browser, base, *, app=True, off=False, size=(1194, 834), prefs=None):
+    ctx = browser.new_context(viewport={"width": size[0], "height": size[1]}, locale="zh-TW")
     page = ctx.new_page()
     errors = []
     page.on("pageerror", lambda e: errors.append(f"pageerror {e}"))
-    page.add_init_script(BRIDGE % ("true" if off else "false", "true" if app else "false"))
+    page.add_init_script(BRIDGE % ("true" if off else "false", "true" if app else "false", json.dumps(prefs or {})))
     page.goto(base + "/office.html")
     return ctx, page, errors
 
@@ -138,6 +138,8 @@ def run(browser, base, engine):
     drawn = page.evaluate("['b:main', 't:s2'].map(k => !!__office.entScreen(k))")
     check("…and they are drawn in the room (the bot and the temp have a place on screen)", drawn == [True, True], drawn)
     check("app mode is on", page.evaluate("document.body.classList.contains('app')"))
+    check("the legend has no 拖曳頭像 row (no seat moves in the app): really not drawn, not only [hidden]",
+          page.evaluate("getComputedStyle(document.querySelectorAll('#legend li')[7]).display") == "none")
     page.wait_for_timeout(3500)                     # one more round of polling
     calls = sent(page, "call")
     bad = [(m["body"].get("method"), why) for m in calls if (why := backend_accepts(m))]
@@ -168,6 +170,17 @@ def run(browser, base, engine):
     page.evaluate("SFOfficeApp.active(true)")
     page.wait_for_timeout(1000)
     check("active(true): it asks again at once", len(sent(page, "call")) > n1)
+    check("no script error on the page", not errors, errors)
+    ctx.close()
+
+    print(f"[{engine}] a phone on its side, with the desktop's prefs saying the legend is open")
+    ctx, page, errors = open_page(browser, base, size=(844, 390), prefs={"legendMin": False})
+    page.wait_for_function("window.__sent.some(m => m.op === 'ready' || m.op === 'error')", timeout=20000)
+    check("a low screen starts with the legend folded (the desktop's legendMin=false does not open it here)",
+          page.evaluate("document.getElementById('legend').classList.contains('min')"))
+    check("…its folded box leaves the room in view (under a third of the height)",
+          page.evaluate("document.getElementById('legend').getBoundingClientRect().height") < 390 / 3,
+          page.evaluate("document.getElementById('legend').getBoundingClientRect().height"))
     check("no script error on the page", not errors, errors)
     ctx.close()
 

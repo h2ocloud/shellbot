@@ -150,7 +150,7 @@ def calls(page, name=None):
 def visible(page, sel):
     return page.evaluate("""(s) => { const el = document.querySelector(s); if (!el) return false; const cs = getComputedStyle(el);
         if (cs.display === 'none' || cs.visibility === 'hidden') return false;
-        for (let p = el; p; p = p.parentElement) if (p.hidden) return false;
+        for (let p = el; p; p = p.parentElement) { const ps = getComputedStyle(p); if (ps.display === 'none' || ps.visibility === 'hidden') return false; }
         const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; }""", sel)
 
 
