@@ -388,8 +388,8 @@ bm.tick = lambda api_, cfg_, now=None: []      # the thread goes on looking, at 
 bm.TICK_SEC = 3600
 
 print("10. what the chat view and the push read")
-js = (HERE / "web" / "chat.js").read_text(encoding="utf-8")
-check("web/chat.js folds on the same first line as the request", f"'{bm.MARK}'" in js)
+js = (HERE / "web" / "chat_rules.js").read_text(encoding="utf-8")
+check("web/chat_rules.js folds on the same first line as the request", f"'{bm.MARK}'" in js)
 push = (HERE / "api_push.py").read_text(encoding="utf-8")
 check("a finished save is not pushed to the phone as 'done'", "bot_memory.ended_by_request(evs)" in push)
 

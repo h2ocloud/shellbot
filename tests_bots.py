@@ -190,11 +190,12 @@ def wait_for(cond, timeout=8.0):
 
 # ── 1. tokens ──────────────────────────────────────────────────────────────
 print("tokens")
+kit_js = (HERE / "web" / "bots_kit.js").read_text(encoding="utf-8")   # the faces' parts moved out of bots.js
 js = (HERE / "web" / "bots.js").read_text(encoding="utf-8")
-shapes_js = re.findall(r"^\s{4}(\w+):\s+\{ name:", js, re.M)
-palette_js = re.findall(r"(\w+): '#[0-9A-Fa-f]{6}'", js.split("const PALETTE")[1].split("};")[0])
-check("bots.js shapes == bots.SHAPES", tuple(shapes_js) == bots.SHAPES, f"{shapes_js}")
-check("bots.js palette == bots.COLORS", tuple(palette_js) == bots.COLORS, f"{palette_js}")
+shapes_js = re.findall(r"^\s{4}(\w+):\s+\{ name:", kit_js, re.M)
+palette_js = re.findall(r"(\w+): '#[0-9A-Fa-f]{6}'", kit_js.split("const PALETTE")[1].split("};")[0])
+check("bots_kit.js shapes == bots.SHAPES", tuple(shapes_js) == bots.SHAPES, f"{shapes_js}")
+check("bots_kit.js palette == bots.COLORS", tuple(palette_js) == bots.COLORS, f"{palette_js}")
 css = (HERE / "web" / "bots.css").read_text(encoding="utf-8")
 for cls in ("sig-working", "sig-decision", "sig-stuck", "sig-done", "on.attention", "is-asleep", "is-writing"):
     check(f"bots.css has an expression for {cls}", cls in css)
