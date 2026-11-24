@@ -448,6 +448,13 @@
     return out;
   }
   // The tool call a question is about: the last one since the last user turn.
+  // Is a bubble's text in this record of the person's? Line breaks, runs of spaces and the CLI's own [Image #n] marks may
+  // differ between what was typed and what the record keeps (a message with pictures taken in mid-turn), so they do not count.
+  const wordsOf = s => String(s || '').replace(/\[Image #\d+\]/g, ' ').replace(/\s+/g, ' ').trim();
+  function sameWords(recorded, sent) {
+    const w = wordsOf(sent);
+    return wordsOf(recorded).includes(w);
+  }
   function pendingCall(turns) {
     const list = turns || [];
     for (let i = list.length - 1; i >= 0; i--) {
@@ -569,7 +576,7 @@
   }
 
   const RULES = { isZh, CHAT_PROVIDERS, guessProvider, commandNamed, plainName, mapOption, mapQuestion, mapDecision, toolKind, toolSummary,
-                  plainDoing, runWords, isCompaction, userView, botView, preview, pastedLabel, buildTimeline, pendingCall, askContext,
+                  plainDoing, runWords, isCompaction, userView, botView, preview, pastedLabel, buildTimeline, pendingCall, sameWords, askContext,
                   md, inline, escHtml, OPTION_RULES, QUESTION_RULES };
 
   if (typeof module === 'object' && module.exports) module.exports = RULES;

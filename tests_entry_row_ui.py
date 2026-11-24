@@ -323,6 +323,21 @@ def run(browser, base, engine):
           and not spills(page, "#sb-entry .sfe-row", "#sb-entry button, #sb-entry .sfb-badge"))
     page.close()
 
+    print(f"[{engine}] the language changed in Settings while the page is open")
+    page = new_page(browser, errors, bots=True, office=False, style="cli", lang="zh-TW")
+    start(page, base)
+    page.evaluate("() => { const s = document.getElementById('setting-lang'); s.value = 'en'; s.dispatchEvent(new Event('change')); }")
+    page.wait_for_timeout(300)
+    words = page.evaluate("[...document.querySelectorAll('#sb-entry .sfe-label')].map(e => e.textContent)")
+    foot = page.evaluate("[...document.querySelectorAll('#sb-footer-row .sb-word')].map(e => e.textContent)")
+    check("zh → en in Settings: the row says Bots / Office / Board and the foot Guide / For AI at once (reported: they stayed 辦公室／看板／導覽／給 AI)",
+          words == ["Bots", "Office", "Board"] and foot == ["Guide", "For AI"], (words, foot))
+    page.evaluate("() => { const s = document.getElementById('setting-lang'); s.value = 'zh-TW'; s.dispatchEvent(new Event('change')); }")
+    page.wait_for_timeout(300)
+    words = page.evaluate("[...document.querySelectorAll('#sb-entry .sfe-label')].map(e => e.textContent)")
+    check("…and back to 中文", words == ["Bots", "辦公室", "看板"], words)
+    page.close()
+
     print(f"[{engine}] English at 220 px")
     page = new_page(browser, errors, bots=True, office=False, style="cli", lang="en")
     start(page, base)

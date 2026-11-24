@@ -93,6 +93,7 @@
     btn = document.getElementById('btn-taskboard');
     if (!btn) return false;
     btn.addEventListener('click', toggle);
+    document.addEventListener('sf-lang', paint);   // the language changed in Settings (index.html applyI18n): 看板 ↔ Board
     paint();
     return true;
   }

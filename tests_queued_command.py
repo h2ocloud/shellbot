@@ -47,5 +47,12 @@ check("another kind of attachment stays out", A._norm_claude({"type": "attachmen
 check("a normal user record is as before", A._norm_claude({"type": "user", "timestamp": "2026-11-17T05:40:00Z",
                                                            "message": {"role": "user", "content": "示範：一般的訊息"}})["text"] == "示範：一般的訊息")
 
+blocks = [{"type": "text", "text": "[Image #195] [Image #196]示範：英文版沒翻到\n左上角也擠到了"},
+          {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": "iVBORw0KGgo="}}]
+ev = A._norm_claude(queued(blocks))
+check("a message with pictures taken in mid-turn: its words, not the Python list of its blocks (reported: the chat view showed [{'type': 'text'…)",
+      ev and ev["text"] == "[Image #195] [Image #196]示範：英文版沒翻到\n左上角也擠到了" and "{'type'" not in ev["text"] and "base64" not in ev["text"], ev)
+check("…pictures alone are no words: nothing", A._norm_claude(queued([{"type": "image", "source": {"type": "base64", "data": "x"}}])) is None)
+
 print(f"\nResults: {passed} passed, {failed} failed")
 sys.exit(1 if failed else 0)

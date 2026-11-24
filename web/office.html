@@ -359,6 +359,11 @@ button.who:hover{background:rgba(122,162,247,.28)}
   box-shadow:0 30px 80px rgba(0,0,0,.6),inset 0 0 0 1px rgba(0,0,0,.28),0 0 0 1px rgba(255,255,255,.18)}
 #wall[data-view=board] .vhead{border-bottom:0;padding:14px 18px 2px 22px;position:relative;z-index:1}
 #wall[data-view=board] .vhead .vic{display:none}
+/* the title keeps its width and the 這台／隔壁 switcher takes what is left, wrapping into rows: with five paired computers it
+   took the whole row and squeezed 任務看板 into one character a line (reported) */
+#wall[data-view=board] .vhead .vt{flex:0 0 auto}
+#wall[data-view=board] .vhead h2,#wall[data-view=board] .vhead p{white-space:nowrap}
+#wall[data-view=board] .vhead .vhx{flex:1 1 0;min-width:0}
 #wall[data-view=board] .vhead h2{font:700 32px/1.15 var(--marker);color:#1f4aa8;letter-spacing:.04em;transform:rotate(-.8deg);transform-origin:left}
 #wall[data-view=board] .vhead p{font:600 17px var(--marker);color:var(--wsub)}
 #wall[data-view=board] .vhead .vx{background:rgba(255,255,255,.75);border-color:#a9b1c4;color:#46506f}
@@ -404,7 +409,7 @@ html.bo body>*:not(#wall):not(#toast){display:none!important}
 .nt{position:relative;width:min(170px,100%);min-height:160px;display:flex;flex-direction:column;gap:7px;padding:19px 12px 11px;color:#1f2433;background-color:var(--pc);
   background-image:linear-gradient(168deg,rgba(255,255,255,.4),rgba(255,255,255,0) 52%,rgba(0,0,0,.07));border-radius:2px 2px 16px 2px;
   box-shadow:0 1px 1px rgba(0,0,0,.14),0 10px 16px -6px rgba(30,40,70,.5);transform:rotate(var(--tilt,0deg));transition:transform .14s,box-shadow .14s}
-.nt:hover,.nt:focus-within{transform:rotate(0) translateY(-3px) scale(1.035);box-shadow:0 1px 1px rgba(0,0,0,.14),0 16px 22px -6px rgba(30,40,70,.6);z-index:3}
+.nt:hover,.nt:focus-within{transform:rotate(0) translateY(-4px);box-shadow:0 1px 1px rgba(0,0,0,.14),0 18px 26px -6px rgba(30,40,70,.62);z-index:3}   /* lifted, not scaled: a scaled card's text is drawn blurred in WebKit */
 .nt.mg::before{content:"";position:absolute;top:-9px;left:50%;margin-left:-10px;width:20px;height:20px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff 0,var(--mc) 52%,#1b1d27 135%);box-shadow:0 3px 4px rgba(0,0,0,.4)}
 .nt.tp::before{content:"";position:absolute;top:-10px;left:50%;margin-left:-30px;width:60px;height:19px;background:rgba(240,232,196,.82);transform:rotate(-3deg);box-shadow:0 1px 2px rgba(0,0,0,.2)}
 .nt .nh{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
@@ -622,6 +627,8 @@ body.searching #top.f-search #qres{left:0;right:0;width:auto}
   #wall .vz{padding:4px 10px 12px}
   .vhead{flex-wrap:wrap}
   .vhead .vhx{order:5;flex:1 1 100%;justify-content:space-between;flex-wrap:wrap}
+  #wall[data-view=board] .vhead .vt{flex:1 1 auto;min-width:0}
+  #wall[data-view=board] .vhead .vhx{flex:1 1 100%}
   .cg.w,.cg.d{--lw:40px}
   .cg .chr{font-size:12px;padding-right:3px}
   .cg.w .ce .cx,.cg.w .ce .pdg{display:none}
@@ -2239,7 +2246,7 @@ function wallObj(k) {
   }
   const m = /^board:(.+)$/.exec(String(k)), pe = m && M.peers.get(m[1]), r = pe && pe.boardState ? M.rooms.get('peer:' + pe.id) : null;
   if (!r) return null;
-  return { name: pe.name + ' 的白板', q: peerBoardQ(r), room: r.id };
+  return { name: tr(pe.name + "'s board", pe.name + ' 的白板'), q: peerBoardQ(r), room: r.id };
 }
 const wallRoom = k => (WALL_OBJ[k] || String(k).startsWith('obj:') ? 'lobby' : 'peer:' + String(k).replace(/^(board|tv):/, ''));
 const wallKeys = () => [...OBJ.keys(), 'cal', 'board', ...(OPS.active() ? ['tv'] : []), ...[...M.peers.keys()].map(id => 'board:' + id), ...(OPS.active() ? [...M.peers.keys()].map(id => 'tv:' + id) : [])];
@@ -2400,7 +2407,7 @@ function boardHtml() {
   if (pe && pe.boardState !== 'ok') {                // 隔壁電腦的白板還沒有可以看的：讀取中、版本較舊、沒開放、連不上（連不上但有上次的就照樣畫，上面加一行）
     const st = pe.boardState, msg = peerNotice(pe);
     if (st === 'pending') return `<div class="wb wb-empty"><p class="big wpeer-state">${esc(msg)}</p></div>`;
-    if (st === 'old' || st === 'denied') return `<div class="wb wb-empty"><p class="big">${st === 'old' ? '還看不到這台的白板' : '這台沒有開放'}</p><p class="sm wpeer-state">${esc(msg)}</p></div>`;
+    if (st === 'old' || st === 'denied') return `<div class="wb wb-empty"><p class="big">${st === 'old' ? tr("This computer's board cannot be seen yet", '還看不到這台的白板') : tr('This computer does not share it', '這台沒有開放')}</p><p class="sm wpeer-state">${esc(msg)}</p></div>`;
     if (!B || !B.all.length) return `<div class="wb wb-empty"><p class="big">${pe.bAt > 0 ? '那台現在沒有任務' : '還沒有讀到'}</p><p class="sm wpeer-state">${esc(msg)}</p></div>`;
   }
   if (!B || !B.all.length) return pe ? '<div class="wb wb-empty"><p class="big">還沒有任務</p><p class="sm">那台電腦的 bot 用 <code>sfctl task add</code> 記下手上的事，就會貼在這塊白板上。</p></div>'
@@ -2895,7 +2902,7 @@ function calInput(ev) {
 // ── 檢視：開、關、畫 ──
 const VIEW_ICON = { board: '<svg width="20" height="20" viewBox="0 0 20 20"><rect x="2" y="3" width="16" height="12" rx="1.5" fill="#c8cde3"/><rect x="4" y="5" width="4" height="3.5" fill="#7aa2f7"/><rect x="9.5" y="5" width="4" height="3.5" fill="#f7768e"/><rect x="4" y="9.6" width="4" height="3.5" fill="#e0af68"/><rect x="9.5" y="9.6" width="4" height="3.5" fill="#9ece6a"/></svg>',
   cal: '<svg width="20" height="20" viewBox="0 0 20 20"><rect x="3" y="3" width="14" height="14" rx="1.5" fill="#e6e9f5"/><rect x="3" y="3" width="14" height="4.5" rx="1.5" fill="#f7768e"/><rect x="5.5" y="9.5" width="3" height="2" fill="#9aa5ce"/><rect x="10" y="9.5" width="3" height="2" fill="#f7768e"/><rect x="5.5" y="13" width="3" height="2" fill="#9aa5ce"/></svg>' };
-const viewTitle = () => { const pe = viewPeer(); return pe ? `隔壁：${pe.name} 的白板` : view === 'board' ? tr('Task board', '任務看板') : WALL_OBJ[view].name; };
+const viewTitle = () => { const pe = viewPeer(); return pe ? tr(`Next door: ${pe.name}'s board`, `隔壁：${pe.name} 的白板`) : view === 'board' ? tr('Task board', '任務看板') : WALL_OBJ[view].name; };
 function viewSub() {
   if (view === 'board') return boardSub();
   const d = SCHED.data; return `對話裡 ${M.loops.length} 個` + (d && d.ok && !d.unsupported && d.configured ? ` · 這台電腦 ${d.rows.filter(r => r.enabled).length}/${d.rows.length} 個啟用` : '');
@@ -2906,7 +2913,7 @@ const scopeSig = () => (BOARD_ONLY ? peerBoards().map(pe => pe.id + ':' + pe.nam
 function scopeBar() {
   const ps = peerBoards(); if (!BOARD_ONLY || !ps.length) return '';
   const b = (id, w) => `<button type="button" class="wsc" data-act="scope" data-scope="${esc(id)}" aria-pressed="${(vscope || '') === id}">${esc(w)}</button>`;
-  return `<div class="wscope" role="group" aria-label="看哪一台電腦的白板">${b('', '這台')}${ps.map(pe => b(pe.id, '隔壁：' + pe.name)).join('')}</div>`;
+  return `<div class="wscope" role="group" aria-label="${esc(tr('Whose board to look at', '看哪一台電腦的白板'))}">${b('', tr('This computer', '這台'))}${ps.map(pe => b(pe.id, tr('Next door: ', '隔壁：') + pe.name)).join('')}</div>`;
 }
 function switchScope(id) { if ((vscope || '') === id) return; openView(id ? 'board:' + id : 'board'); }
 function renderView(force) {

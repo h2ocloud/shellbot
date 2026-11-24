@@ -264,6 +264,7 @@
     paint();
     const s = document.getElementById('btn-settings');                       // the language may have changed in Settings
     if (s) s.addEventListener('click', () => setTimeout(paint, 0));
+    document.addEventListener('sf-lang', paint);                              // …and is changed there: the page says so (index.html applyI18n)
     if (root.MutationObserver) {
       new MutationObserver(paint).observe(document.body, { attributes: true, attributeFilter: ['class'] });   // sfb-on: bots switched on or off
       const ro = root.ResizeObserver ? new root.ResizeObserver(refit) : null;

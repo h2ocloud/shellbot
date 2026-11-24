@@ -1082,9 +1082,7 @@ def _content_text(content):
     if isinstance(content, list):
         parts = []
         for c in content:
-            if isinstance(c, dict) and c.get("type") == "text" and c.get("text"):
-                parts.append(c["text"])
-            elif isinstance(c, dict) and c.get("type") == "output_text" and c.get("text"):
+            if isinstance(c, dict) and c.get("type") in ("text", "output_text", "input_text") and c.get("text"):
                 parts.append(c["text"])
             elif isinstance(c, str):
                 parts.append(c)
@@ -1114,7 +1112,8 @@ def _norm_claude(o):
         # （origin.kind human）。不認它，對話模式那則就一直「送出中」（回報）。背景通知（task-notification）不算。
         a = o.get("attachment") if isinstance(o.get("attachment"), dict) else {}
         if a.get("type") == "queued_command" and (a.get("origin") or {}).get("kind", "human") == "human":
-            return {"kind": "user_msg", "ts": ts, "text": str(a.get("prompt") or "")} if str(a.get("prompt") or "").strip() else None
+            text = _content_text(a.get("prompt"))   # blocks when pictures came with it: str() showed the Python list (reported)
+            return {"kind": "user_msg", "ts": ts, "text": text} if text else None
         return None
     if t == "assistant":
         # 一筆 assistant 記錄可帶 thinking、多個 tool_use 和回覆文字：照順序全部吐出來（舊版每筆只回一個事件，
@@ -1148,8 +1147,8 @@ def _norm_codex(o):
     ts = _parse_iso(o.get("timestamp"))
     if outer == "event_msg":
         if pt in ("task_started", "turn_started", "user_message"):
-            return {"kind": "user_msg", "ts": _epoch(p.get("started_at")) or ts,
-                    "text": str(p.get("message", "") or "").strip()}
+            # an empty one is kept: 9% of turns measured start with no user_message, and it marks the turn as begun
+            return {"kind": "user_msg", "ts": _epoch(p.get("started_at")) or ts, "text": _content_text(p.get("message"))}
         if pt in ("task_complete", "turn_complete"):
             return {"kind": "turn_end", "ts": _epoch(p.get("completed_at")) or ts}
         if pt in ("exec_approval_request", "apply_patch_approval_request"):
@@ -1184,6 +1183,8 @@ def _norm_codex(o):
         if pt in ("function_call_output", "custom_tool_call_output", "tool_search_output"):
             return {"kind": "tool_result", "ts": ts}
         if pt == "message":
+            if p.get("role") == "user":
+                return None
             return {"kind": "assistant_text", "ts": ts,
                     "text": _content_text(p.get("content"))}
         if pt == "reasoning":

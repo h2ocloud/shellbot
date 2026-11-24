@@ -24,7 +24,7 @@
   // The rules (language, a question and its options, tool summaries, the timeline, preview, safe Markdown) are in
   // web/chat_rules.js (SFChatRules), so a page without this screen can use them; this file re-exports them.
   const RULES = (root && root.SFChatRules) || require('./chat_rules.js');
-  const { isZh, CHAT_PROVIDERS, mapDecision, toolSummary, plainDoing, guessProvider, commandNamed, plainName, pastedLabel, buildTimeline, pendingCall, escHtml, inline, md, askContext } = RULES;
+  const { isZh, CHAT_PROVIDERS, mapDecision, toolSummary, plainDoing, guessProvider, commandNamed, plainName, pastedLabel, buildTimeline, pendingCall, sameWords, escHtml, inline, md, askContext } = RULES;
   if (typeof module === 'object' && module.exports) module.exports = RULES;
   if (typeof document === 'undefined' || !root) return;
 
@@ -631,8 +631,7 @@
     if (v.note && v.note === v.waitNote && sid === activeSid())        // the minutes go on; once it went in, the line goes
       note(v.waitNote = held ? waitWords(held, true, sid) : '');
     v.pending = v.pending.filter(p => p.failed !== undefined ||
-      (now - p.at < (p.queued ? QUEUE_HOLD_MS : HOLD_SENT_MS) &&
-       !items.some(it => it.type === 'user' && it.text.includes(String(p.key || p.text).trim()))));
+      (now - p.at < (p.queued ? QUEUE_HOLD_MS : HOLD_SENT_MS) && !items.some(it => it.type === 'user' && sameWords(it.text, p.key || p.text))));
     let html = '';
     if ((data.turns || []).length >= v.limit && v.limit < 400) {
       html += `<button class="cm-earlier" data-act="earlier">${escHtml(T('Show earlier messages', '載入更早的對話'))}</button>`;

@@ -385,5 +385,15 @@ console.log('a bot saving its memory while its tab stays open');
     R.buildTimeline([u(ask, 1)])[0].type === 'memory');
 }
 
+// A sent bubble leaves once the record has its words, however the record wrote them (reported: messages taken in mid-turn
+// with pictures stayed "sending" though they had gone in).
+{
+  const sent = '示範：英文版沒翻到\n左上角也擠到了';
+  check('the record has the bubble: line breaks and spaces differ', R.sameWords('示範：英文版沒翻到 左上角也擠到了', sent));
+  check('…the CLI put [Image #n] marks in front', R.sameWords('[Image #195] [Image #196]示範：英文版沒翻到\n左上角也擠到了', sent));
+  check('…runs of spaces and a trailing newline', R.sameWords('示範：英文版沒翻到\n\n  左上角也擠到了\n', sent));
+  check('other words are not the bubble', !R.sameWords('示範：別的訊息', sent));
+}
+
 console.log(fails ? `\n${fails} failed, ${passes} passed` : `\nALL PASS (${passes})`);
 process.exit(fails ? 1 : 0);

@@ -309,6 +309,16 @@ def run(browser, base, engine):
     fr = open_office(page, MANY)
     notes = fr.evaluate("__office.notes()")
     check("more than seven tasks → seven notes, the two red ones first", len(notes) == 7 and notes[:2] == [RED, RED] and notes.count(RED) == 2, notes)
+    fr.evaluate("__office.openView('board')")
+    note = fr.locator("#vBody .nt").nth(1)
+    note.hover()
+    page.wait_for_timeout(400)
+    tf = note.evaluate("e => getComputedStyle(e).transform")
+    m = [float(v) for v in tf[tf.index("(") + 1:-1].split(",")] if tf.startswith("matrix(") else []
+    check("a hovered note lifts without scaling (a scaled card's text is drawn blurred in WebKit; reported): "
+          "matrix(1, 0, 0, 1, 0, whole px)", len(m) == 6 and m[:4] == [1, 0, 0, 1] and m[4] == 0 and m[5] < 0 and m[5] == int(m[5]), tf)
+    page.mouse.move(2, 2)
+    fr.evaluate("__office.closeView()")
     fr = open_office(page, THREE)
     notes = fr.evaluate("__office.notes()")
     check("three tasks → three notes, none red", len(notes) == 3 and RED not in notes, notes)

@@ -248,7 +248,7 @@ DEFAULT_CONFIG = {
     ],
     "settings": {
         "fontSize": 14,
-        "language": "en",
+        "language": "zh-TW" if sf_lang.prompt_lang() == "zh" else "en",   # a new install speaks the system's language (asked for: colleagues should not have to find the switch)
         "experimental_loops": False,
         # The office (web/office.js + office.html): bots, AI tabs and their subagents drawn as an
         # office floor behind the 辦公室 button of the sidebar's top row. On for a new install; one that predates it

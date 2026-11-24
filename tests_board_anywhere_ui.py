@@ -372,6 +372,21 @@ def run(browser, base, engine):
     check("the switcher: 這台 (pressed) and 隔壁：<電腦> for each paired computer with a board", sw == [["這台", "true"], ["隔壁：示範電腦甲", "false"], ["隔壁：示範電腦乙", "false"]], sw)
     if shoot:
         page.screenshot(path=str(H.SHOTS / "board-anywhere-switcher.png"))
+    # five paired computers with long names (reported: the switcher took the whole head and squeezed 任務看板 into a column)
+    fr.evaluate("""() => { const w = document.querySelector('.wscope');
+        for (const n of ['示範很長名字的筆電-Air-2', '示範桌機', '示範很長名字的筆電-Pro', '示範雲端主機-a1-01', '示範遊戲筆電']) {
+          const b = w.querySelector('.wsc:last-child').cloneNode(true); b.textContent = '隔壁：' + n; b.dataset.scope = 'x-' + n; w.appendChild(b); } }""")
+    page.wait_for_timeout(300)
+    lay = fr.evaluate("""() => { const r = e => e.getBoundingClientRect(), t = r(document.getElementById('vTitle')), p = r(document.getElementById('vSub')),
+        s = r(document.querySelector('.wscope')), h = r(document.querySelector('.vhead')), x = r(document.getElementById('vClose')),
+        fs = parseFloat(getComputedStyle(document.getElementById('vTitle')).fontSize);
+        return {titleLines: t.height / (fs * 1.15), subH: p.height, overlap: !(t.right <= s.left || s.right <= t.left || t.bottom <= s.top || s.bottom <= t.top),
+                inside: [...document.querySelectorAll('.wscope .wsc')].every(b => r(b).right <= h.right + 1), close: x.right <= h.right + 1 && x.top < s.bottom}; }""")
+    check("many paired computers: the title stays one line and the subtitle too, the switcher wraps beside it without covering it, all inside the head",
+          lay["titleLines"] < 1.5 and lay["subH"] < 30 and not lay["overlap"] and lay["inside"] and lay["close"], lay)
+    if shoot:
+        page.screenshot(path=str(H.SHOTS / "board-anywhere-switcher-many.png"))
+    fr.evaluate("() => document.querySelectorAll('.wscope .wsc[data-scope^=\"x-\"]').forEach(b => b.remove())")
     before = {n: H.calls(page, n) for n in ("task_detail", "task_user_act")}
     fr.click('.wscope [data-scope="pid-a"]')
     page.wait_for_timeout(500)
@@ -398,6 +413,19 @@ def run(browser, base, engine):
     check("pressing the pressed one again changes nothing (it does not close)", page.evaluate("!!document.getElementById('sfo-overlay')") and fr.evaluate("__office.view()") == "board")
     page.keyboard.press("Escape")
     check("Esc closes it", overlay_gone(page))
+    page.evaluate("() => { const s = document.getElementById('setting-lang'); s.value = 'en'; s.dispatchEvent(new Event('change')); }")
+    page.wait_for_timeout(300)
+    page.click("#btn-taskboard")
+    fr = board_frame(page)
+    fr.wait_for_selector(".wscope", timeout=8000)
+    sw = fr.evaluate("[...document.querySelectorAll('.wscope .wsc')].map(b => b.textContent)")
+    check("English: the switcher says This computer / Next door: <computer> (reported: it stayed in Chinese)",
+          sw == ["This computer", "Next door: 示範電腦甲", "Next door: 示範電腦乙"] and fr.evaluate("document.querySelector('.wscope').getAttribute('aria-label')") == "Whose board to look at", sw)
+    fr.click('.wscope [data-scope="pid-a"]')
+    page.wait_for_timeout(400)
+    check("…and a paired computer's board is titled in English", fr.evaluate("document.getElementById('vTitle').textContent") == "Next door: 示範電腦甲's board")
+    page.keyboard.press("Escape")
+    overlay_gone(page)
     page.close()
 
     print(f"[{engine}] office switch on: both buttons; the office and its lobby whiteboard as before")
