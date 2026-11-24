@@ -789,9 +789,14 @@ body.app .cpst.on{color:var(--green)}
 
 <script src="icons.js"></script>
 <script src="deliv_draw.js"></script>
+<!-- the phone app (window.SFOfficeApp): the pure parts the desktop keeps in its main window, then the host over the app's bridge; on the desktop office_app_host.js does nothing -->
+<script src="bots_kit.js"></script>
+<script src="chat_rules.js"></script>
+<script src="office_core.js"></script>
 <script src="office_objects.js"></script>
 <script src="office_arrange.js"></script>
 <script src="office_ops.js"></script>
+<script src="office_app_host.js"></script>
 <script>
 (() => {
 'use strict';
