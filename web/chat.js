@@ -462,6 +462,13 @@
     return out;
   }
   // The tool call a question is about: the last one since the last user turn.
+  // Is a bubble's text in this record of the person's? Line breaks, runs of spaces and the CLI's own [Image #n] marks may
+  // differ between what was typed and what the record keeps (a message with pictures taken in mid-turn), so they do not count.
+  const wordsOf = s => String(s || '').replace(/\[Image #\d+\]/g, ' ').replace(/\s+/g, ' ').trim();
+  function sameWords(recorded, sent) {
+    const w = wordsOf(sent);
+    return wordsOf(recorded).includes(w);
+  }
   function pendingCall(turns) {
     const list = turns || [];
     for (let i = list.length - 1; i >= 0; i--) {
@@ -583,7 +590,7 @@
   }
 
   const RULES = { isZh, CHAT_PROVIDERS, guessProvider, commandNamed, plainName, mapOption, mapQuestion, mapDecision, toolKind, toolSummary,
-                  plainDoing, runWords, isCompaction, userView, botView, preview, pastedLabel, buildTimeline, pendingCall, askContext,
+                  plainDoing, runWords, isCompaction, userView, botView, preview, pastedLabel, buildTimeline, pendingCall, sameWords, askContext,
                   md, inline, escHtml, OPTION_RULES, QUESTION_RULES };
   if (typeof module === 'object' && module.exports) module.exports = RULES;
   if (typeof document === 'undefined' || !root) return;
@@ -1191,8 +1198,7 @@
     if (v.note && v.note === v.waitNote && sid === activeSid())        // the minutes go on; once it went in, the line goes
       note(v.waitNote = held ? waitWords(held, true, sid) : '');
     v.pending = v.pending.filter(p => p.failed !== undefined ||
-      (now - p.at < (p.queued ? QUEUE_HOLD_MS : HOLD_SENT_MS) &&
-       !items.some(it => it.type === 'user' && it.text.includes(String(p.key || p.text).trim()))));
+      (now - p.at < (p.queued ? QUEUE_HOLD_MS : HOLD_SENT_MS) && !items.some(it => it.type === 'user' && sameWords(it.text, p.key || p.text))));
     let html = '';
     if ((data.turns || []).length >= v.limit && v.limit < 400) {
       html += `<button class="cm-earlier" data-act="earlier">${escHtml(T('Show earlier messages', '載入更早的對話'))}</button>`;

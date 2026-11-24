@@ -1114,7 +1114,8 @@ def _norm_claude(o):
         # （origin.kind human）。不認它，對話模式那則就一直「送出中」（回報）。背景通知（task-notification）不算。
         a = o.get("attachment") if isinstance(o.get("attachment"), dict) else {}
         if a.get("type") == "queued_command" and (a.get("origin") or {}).get("kind", "human") == "human":
-            return {"kind": "user_msg", "ts": ts, "text": str(a.get("prompt") or "")} if str(a.get("prompt") or "").strip() else None
+            text = _content_text(a.get("prompt"))   # blocks when pictures came with it: str() showed the Python list (reported)
+            return {"kind": "user_msg", "ts": ts, "text": text} if text else None
         return None
     if t == "assistant":
         # 一筆 assistant 記錄可帶 thinking、多個 tool_use 和回覆文字：照順序全部吐出來（舊版每筆只回一個事件，
