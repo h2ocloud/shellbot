@@ -147,7 +147,20 @@ kbd{font:600 10.5px var(--mono);padding:1px 5px;border:1px solid var(--line);bor
 #tools{position:fixed;right:16px;bottom:16px;z-index:4;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px;transition:opacity .2s}
 body.following #tools{opacity:0;pointer-events:none}
 body.live-data #addOne,body.live-data #addTen,body.live-data #demoHandoff{display:none}
-body.embedded #top{padding-right:calc(58px / var(--ui))}   /* ShellBot's close button sits in the corner */
+body.embedded #top{padding-right:calc(58px / var(--ui))}
+/* ── 風格：淺色（北歐淺色）。只換浮在地板上的工具列、圖例和右下角的鈕；狀態數字的小卡維持深底，顏色才跟畫面上的狀態一樣看得清楚。
+   彈出的看板、日曆、追蹤面板本來就是一張深色卡片，不換。 ── */
+html.sty-light #top,html.sty-light #legend,html.sty-light #tools{--panel:#fbf8f3;--line:#d9d1c4;--ink:#2d2a26;--dim:#6b645a;--mute:#9a9286}
+html.sty-light #top{background:linear-gradient(180deg,rgba(251,248,243,.97),rgba(246,242,235,.92));box-shadow:0 6px 24px rgba(90,70,40,.12)}
+html.sty-light .mark{background:linear-gradient(150deg,#f3ede4,#e6dfd3)}
+html.sty-light .search,html.sty-light .ib,html.sty-light .seg,html.sty-light .sel select{background:rgba(255,255,255,.7)}
+html.sty-light .sel select option{background:#fbf8f3;color:#2d2a26}
+html.sty-light .tb{background:rgba(255,255,255,.88)}
+html.sty-light .tb.acc{color:#7a52c4;border-color:rgba(122,82,196,.45)}
+html.sty-light .seg button[aria-pressed=true]{color:#fff;background:#4a6fd0}
+html.sty-light .stat{background:rgba(31,35,53,.9);border-color:rgba(31,35,53,.9);--dim:#a9b1d6;--ink:#c0caf5}
+html.sty-light #legend{background:rgba(251,248,243,.94);box-shadow:0 10px 30px rgba(90,70,40,.14)}
+html.sty-light #legend .lfoot{border-top-color:#e2dacd}   /* ShellBot's close button sits in the corner */
 /* 字級：DOM 上的字跟著介面大小縮放；畫布（#stage）不縮，牆上東西的點擊判定用的是畫布座標 */
 #top,#legend,#tools,#panel,#toast,#wall .vhead,#wall .vz,#wall .wcard,#wall .cp{zoom:var(--ui)}
 
@@ -1280,10 +1293,10 @@ function drawPlaza(x, far) {
     x.setLineDash([5, 7]); x.lineDashOffset = RM ? 0 : -T * 14; x.strokeStyle = alpha(COL.teal, .6); x.lineWidth = 2; x.beginPath(); x.moveTo(a.x, a.y); x.lineTo(b.x, b.y); x.stroke(); x.setLineDash([]); x.lineDashOffset = 0;
   }
 }
-function wallFace(x, x0, y0, x1, y1, H, n, skip, glow) { // 窗（夜景；風格的 sky 是 'time' 時依當地時間畫窗外）
-  const sky = STY.sky === 'time' ? skyPhase() : '';
+function wallFace(x, x0, y0, x1, y1, H, n, skip, glow, room) { // 窗（夜景；風格的 sky 是 'time' 時畫真的天空：太陽、月亮依這台電腦所在地的經緯度，天氣依當地）
+  const sky = STY.sky === 'time' ? skyState() : null;
   for (let i = 0; i < n; i++) { if (skip && skip(i)) continue; const u1 = (i + .14) / n, u2 = (i + .86) / n;
-    if (sky) { skyWindow(x, x0, y0, x1, y1, H, u1, u2, sky, i); continue; }
+    if (sky) { skyWindow(x, x0, y0, x1, y1, H, u1, u2, sky, i, room); continue; }
     poly(x, wq(x0, y0, x1, y1, u1, u2, H * .36, H * .82), '#1b2442', 'rgba(125,207,255,.16)', 1);
     poly(x, wq(x0, y0, x1, y1, u1, u2, H * .74, H * .82), 'rgba(125,207,255,.10)');
     const k = hash2(i + Math.round(x0 * 3), Math.round(y0 * 7) + n); if (k > .45) poly(x, wq(x0, y0, x1, y1, lerp(u1, u2, .2), lerp(u1, u2, .26), H * .45, H * .52), 'rgba(224,175,104,.35)');
@@ -1315,15 +1328,15 @@ function drawRoomShell(x, r, far) {
   if (STY.brick) for (let z = 7; z < Hh - 4; z += 7) { poly(x, wq(r.x, r.y, r.x + r.w, r.y, 0, 1, z, z + .8), STY.brick); poly(x, wq(r.x, r.y, r.x, r.y + r.h, 0, 1, z, z + .8), STY.brick); }   // 磚牆的灰縫
   poly(x, wq(r.x, r.y, r.x + r.w, r.y, 0, 1, 0, 4), STY.base); poly(x, wq(r.x, r.y, r.x, r.y + r.h, 0, 1, 0, 4), STY.base);
   if (r.kind === 'lobby') {
-    wallFace(x, r.x, r.y, r.x + r.w, r.y, Hh, 7, i => i <= 2 || i === 4);
-    wallFace(x, r.x, r.y, r.x, r.y + Math.min(r.h, 5.5), Hh, 3, i => i === 0);
+    wallFace(x, r.x, r.y, r.x + r.w, r.y, Hh, 7, i => i <= 2 || i === 4, null, r);
+    wallFace(x, r.x, r.y, r.x, r.y + Math.min(r.h, 5.5), Hh, 3, i => i === 0, null, r);
     drawLobbyBoard(x); drawLobbyCalendar(x); drawLobbyTV(x); OBJ.draw(x, { P, poly, box, ellipse, wq, COL, FONT, TH: STY, hover: hoverObj });                                                       // 白板＋便利貼、日曆（§11.7：都是可以點的）
   } else if (r.kind === 'zone') {
-    wallFace(x, r.x, r.y, r.x + r.w, r.y, Hh, 4, null, teamCol(r.team));
+    wallFace(x, r.x, r.y, r.x + r.w, r.y, Hh, 4, null, teamCol(r.team), r);
     poly(x, wq(r.x, r.y, r.x + r.w, r.y, 0, 1, Hh - 8, Hh - 4), alpha(teamCol(r.team), .55));   // 團隊色帶
-    if (r.h > 4) wallFace(x, r.x, r.y, r.x, r.y + r.h, Hh, 2, null, teamCol(r.team));
+    if (r.h > 4) wallFace(x, r.x, r.y, r.x, r.y + r.h, Hh, 2, null, teamCol(r.team), r);
   } else { const pe = M.peers.get(r.peerId), hasB = !!(pe && pe.boardState);
-    wallFace(x, r.x, r.y, r.x + r.w, r.y, Hh, 3, i => !peerWindowShown(r, pe, i), COL.teal);                       // 有白板的房間：中間那扇窗讓給白板；擋到小電視的窗也讓
+    wallFace(x, r.x, r.y, r.x + r.w, r.y, Hh, 3, i => !peerWindowShown(r, pe, i), COL.teal, r);                       // 有白板的房間：中間那扇窗讓給白板；擋到小電視的窗也讓
     if (hasB) drawPeerBoard(x, r, pe);
     if (pe) drawPeerTV(x, r, pe); }
 }
@@ -1348,7 +1361,7 @@ const THEMES = {
     shelf: { t: '#3a3550', l: '#2c2840', r: '#262236' }, counter: { t: '#45495f', l: '#33364a', r: '#2a2c3d' }, pot: { t: '#3b2f2a', l: '#5a463b', r: '#4a3a31' }, leaf: ['#3f7a4c', '#4f9460'],
     sofa: { t: '#3b4566', l: '#2e3652', r: '#262c44' }, sofaBack: { t: '#46517a', l: '#36406a', r: '#2e3659' }, rack: { t: '#262a3c', l: '#191b27', r: '#14151f' },
     book: { t: '#6a5a86', l: '#4b3f66', r: '#3a3052', back: '#2e2742', board: '#5b4d79' }, cab: { t: '#8d98c4', l: '#6f7ba6', r: '#566086', front: '#7e89b4' }, plants: 0,
-    note: 'rgba(224,175,104,.75)', sleepBg: 'rgba(26,27,38,.6)', sleepInk: '#565f89' },   // 畫在地板上的字、休息中的名牌：淺色風格要換深一點才看得到
+    note: 'rgba(224,175,104,.75)', sleepBg: 'rgba(26,27,38,.6)', sleepInk: '#565f89', light: 0 },   // 畫在地板上的字、休息中的名牌：淺色風格要換深一點才看得到
   wood: { name: { en: 'Warm wood', zh: '暖木' },
     bg: ['#24211f', '#141312'], slab: { l: '#2e231b', r: '#251c16', t: '#4b382b' }, lobbyTop: '#513d2e', peerTop: '#4a372a',
     bridge: { l: '#2a2019', r: '#221a14', t: '#45342a' }, floor: 'planks', seam: 'rgba(22,13,7,.42)', guide: 'rgba(255,228,196,.12)', zoneMix: .1,
@@ -1371,7 +1384,7 @@ const THEMES = {
     shelf: { t: '#d6bb93', l: '#bda27b', r: '#aa906a' }, counter: { t: '#f2eee8', l: '#d8d2c8', r: '#c9c2b6' }, pot: { t: '#c98563', l: '#b8714f', r: '#a46344' }, leaf: ['#5c9a60', '#79b77b'],
     sofa: { t: '#b9b3a9', l: '#a6a096', r: '#968f86' }, sofaBack: { t: '#c6c0b6', l: '#b3ada3', r: '#a39d93' }, rack: { t: '#d3cdc3', l: '#bfb9af', r: '#b0aaa0' },
     book: { t: '#d6bb93', l: '#bda27b', r: '#aa906a', back: '#8f7656', board: '#c4a882' }, cab: { t: '#eeeae4', l: '#d6d0c7', r: '#c6c0b6', front: '#e2ddd5' },
-    note: '#8a6418', sleepBg: 'rgba(26,27,38,.82)', sleepInk: '#9aa0bd' },
+    note: '#8a6418', sleepBg: 'rgba(26,27,38,.82)', sleepInk: '#9aa0bd', light: 1 },
   loft: { name: { en: 'Industrial loft', zh: '工業風' },
     bg: ['#242424', '#141414'], slab: { l: '#3a3b3d', r: '#313234', t: '#646567' }, lobbyTop: '#6a6b6d', peerTop: '#606163',
     bridge: { l: '#363739', r: '#2e2f31', t: '#5c5d5f' }, floor: 'tiles', seam: 'rgba(0,0,0,.18)', guide: 'rgba(255,196,120,.22)', zoneMix: .1,
@@ -1395,19 +1408,18 @@ const THEMES = {
     sofa: { t: '#c9b79a', l: '#b5a385', r: '#a39276' }, sofaBack: { t: '#d6c5a8', l: '#c2b193', r: '#b09f82' }, rack: { t: '#33403a', l: '#28332d', r: '#222b26' },
     book: { t: '#8a6a48', l: '#73583b', r: '#634b32', back: '#4a3826', board: '#7c5e40' }, cab: { t: '#d9d5ca', l: '#c3beb2', r: '#b2ada1', front: '#cfcabe' }, plants: 1 },
 };
-const SKY = { day: { top: '#8ec3ea', low: '#c4e2f4', city: '#7690a8', lit: '#ffe08a' }, dusk: { top: '#7b6aa8', low: '#eba077', city: '#4b4668', lit: '#ffd27a' },
-  night: { top: '#162040', low: '#202a4b', city: '#0d1326', lit: '#e0af68' } };
-let STY = THEMES.night, SKY_AT = null;   // SKY_AT：固定幾點（測試、截圖用）；null＝看的人當地時間
+let STY = THEMES.night;
 function themeOf(id) { const b = THEMES.night, t = THEMES[id] || b, o = { id: THEMES[id] ? id : 'night' }; for (const k in b) o[k] = k in t ? t[k] : b[k]; return o; }
 function applyTheme(id) {
   STY = themeOf(id);
   for (const k of ['lobby', 'zone', 'peer']) Object.assign(WALL[k], STY.wall[k]);
   Object.assign(DESK, STY.desk); Object.assign(BIGDESK, STY.bigdesk); Object.assign(TABLE, STY.table); Object.assign(CHAIR, STY.chair); Object.assign(CHAIRB, STY.chairb); Object.assign(PANEL, STY.panel);
   EDGE = STY.edge;
+  document.documentElement.dataset.sty = STY.id; document.documentElement.classList.toggle('sty-light', !!STY.light);   // 北歐淺色：浮在地板上的工具列、圖例換淺色（CSS「風格」那一段）
+  SKY.memo = null; skyAsk(true);
   if (typeof kick === 'function') kick();
   return STY.id;
 }
-function skyPhase() { const n = new Date(), h = SKY_AT != null ? SKY_AT : n.getHours() + n.getMinutes() / 60; return h >= 7 && h < 17 ? 'day' : (h >= 17 && h < 19) || (h >= 5 && h < 7) ? 'dusk' : 'night'; }
 function mixHex(a, b, k) { const A = hexRgb(a), B = hexRgb(b); return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * k)).join(',')})`; }
 const zoneFloor = col => STY.zoneMix ? mixHex(STY.slab.t, col, STY.zoneMix) : shade(col, STY.zoneShade);
 function floorLines(x, x0, y0, w, h, col) {   // 地板的接縫：格線（grid／tiles）或木地板（planks：一條條木板，接縫錯開）
@@ -1419,14 +1431,108 @@ function floorLines(x, x0, y0, w, h, col) {   // 地板的接縫：格線（grid
   }
   x.strokeStyle = col; x.lineWidth = 1; x.stroke();
 }
-function skyWindow(x, x0, y0, x1, y1, H, u1, u2, sky, i) {   // 窗外：白天藍天、黃昏、夜晚，加上遠處的城市
-  const z0 = H * .36, z1 = H * .82, S = SKY[sky], q = (a, b, c, d) => wq(x0, y0, x1, y1, lerp(u1, u2, a), lerp(u1, u2, b), lerp(z0, z1, c), lerp(z0, z1, d));
+/* ── 窗外的天空 ──
+   太陽、月亮的位置用這台電腦所在地的緯度經度和現在的時間算（低精度天文公式，誤差一兩度，畫窗景夠用），不連網也對。
+   位置與天氣由主頁給（HOST.sky()：office_sky，桌面依時區估位置、向 MET Norway 問當地天氣，手機 App 拿的是桌面那台的）；
+   拿不到位置時用看的人的時差估經度、緯度當 30°。天氣拿不到或太舊就當晴天。
+   窗都朝赤道（北半球朝南）：每間房的左牆加後牆是一整片由東到西的景，太陽早上出現在最左邊的窗、中午在中間、傍晚在最右邊；
+   南半球反過來。只有選了 sky 為 'time' 的風格才算、才問天氣（夜藍不問）。 */
+const RAD = Math.PI / 180, OBL = 23.4397 * RAD, SYNODIC = 29.530588;
+const clamp1 = v => Math.max(-1, Math.min(1, v));
+const SKY_COL = { day: { top: '#8ec3ea', low: '#c4e2f4', city: '#7690a8' }, dusk: { top: '#7b6aa8', low: '#eba077', city: '#4b4668' }, night: { top: '#162040', low: '#202a4b', city: '#0d1326' } };
+const SKY = { place: null, weather: null, asked: 0, ver: 0, fixMs: null, fixPlace: null, fixWeather: undefined, memo: null, memoAt: -1 };
+const SKY_ASK_MS = 600000;   // 問主頁的間隔：10 分鐘（後端自己再照 MET Norway 的 Expires／30 分鐘快取）
+function jDays(ms) { return ms / 86400000 + 2440587.5 - 2451545; }   // 從 J2000 起算的日數
+function altAz(ra, dec, d, lat, lon) {
+  const H = (280.16 + 360.9856235 * d + lon) * RAD - ra, phi = lat * RAD;
+  const el = Math.asin(clamp1(Math.sin(phi) * Math.sin(dec) + Math.cos(phi) * Math.cos(dec) * Math.cos(H)));
+  const az = Math.atan2(Math.sin(H), Math.cos(H) * Math.sin(phi) - Math.tan(dec) * Math.cos(phi));   // 從南方起、往西為正
+  return { el: el / RAD, az: ((az / RAD + 180) % 360 + 360) % 360 };                                  // 方位角：從北方起順時針
+}
+function sunAt(d, lat, lon) {
+  const M = (357.5291 + .98560028 * d) * RAD, C = (1.9148 * Math.sin(M) + .02 * Math.sin(2 * M) + .0003 * Math.sin(3 * M)) * RAD, L = M + C + 102.9372 * RAD + Math.PI;
+  return altAz(Math.atan2(Math.sin(L) * Math.cos(OBL), Math.cos(L)), Math.asin(clamp1(Math.sin(OBL) * Math.sin(L))), d, lat, lon);
+}
+function moonAt(d, lat, lon) {
+  const L = (218.316 + 13.176396 * d) * RAD, M = (134.963 + 13.064993 * d) * RAD, F = (93.272 + 13.22935 * d) * RAD, l = L + 6.289 * RAD * Math.sin(M), b = 5.128 * RAD * Math.sin(F);
+  const o = altAz(Math.atan2(Math.sin(l) * Math.cos(OBL) - Math.tan(b) * Math.sin(OBL), Math.cos(l)), Math.asin(clamp1(Math.sin(b) * Math.cos(OBL) + Math.cos(b) * Math.sin(OBL) * Math.sin(l))), d, lat, lon);
+  const age = (((d - 5.2597) / SYNODIC) % 1 + 1) % 1;            // 2000-01-06 18:14 UTC 新月起算
+  return Object.assign(o, { age, lit: (1 - Math.cos(2 * Math.PI * age)) / 2 });
+}
+// 方位角 → 窗景上的位置（0 最左、1 最右）：面向赤道，正午在 .5，東西各 135° 鋪滿整片
+const panOf = (az, lat) => lat >= 0 ? .5 + (az - 180) / 270 : .5 + (((az + 180) % 360) - 180) / 270;
+function skyPlace() {
+  const p = SKY.fixPlace || SKY.place;
+  if (p && isFinite(p.lat) && isFinite(p.lon)) return p;
+  return { lat: 30, lon: -new Date().getTimezoneOffset() / 4, guess: true };   // 沒有位置：看的人的時差估經度
+}
+function skyWeather() {
+  const w = SKY.fixWeather !== undefined ? SKY.fixWeather : SKY.weather;
+  return w && w.kind ? w : null;
+}
+const smooth = (a, b, v) => { const t = Math.max(0, Math.min(1, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
+function skyState() {
+  const ms = SKY.fixMs != null ? SKY.fixMs : Date.now(), key = Math.floor(ms / 30000) + ':' + SKY.ver;
+  if (SKY.memo && SKY.memoAt === key) return SKY.memo;
+  const pl = skyPlace(), d = jDays(ms), sun = sunAt(d, pl.lat, pl.lon), moon = moonAt(d, pl.lat, pl.lon), w = skyWeather();
+  const e = sun.el, dayK = smooth(-2, 8, e), duskK = 1 - smooth(-12, -2, e);   // 太陽高度 8° 以上白天、-2°～8° 由黃昏轉白天、-12°～-2° 由夜轉黃昏
+  const pick = k => { const a = SKY_COL.night[k], b = SKY_COL.dusk[k], c = SKY_COL.day[k]; return e >= -2 ? mixHex(b, c, dayK) : mixHex(a, b, 1 - duskK); };
+  const kind = w ? w.kind : 'clear', grey = { clear: 0, partly: .12, cloudy: .62, fog: .7, rain: .58, sleet: .58, snow: .5 }[kind] || 0, g2 = Math.min(.85, grey + (w && w.thunder ? .15 : 0));
+  const greyCol = mixHex('#232833', '#9aa3ad', dayK), col = k => (g2 ? mixHexRgb(pick(k), greyCol, g2 * (k === 'city' ? .3 : 1)) : pick(k));
+  const st = { ms, place: pl, sun: { el: sun.el, az: sun.az, pan: panOf(sun.az, pl.lat) }, moon: { el: moon.el, az: moon.az, pan: panOf(moon.az, pl.lat), lit: moon.lit, waxing: moon.age < .5 },
+    phase: e >= 8 ? 'day' : e >= -12 ? 'dusk' : 'night', dayK, kind, thunder: !!(w && w.thunder), heavy: !!(w && w.heavy), light: !!(w && w.light),
+    top: col('top'), low: col('low'), city: col('city'), lit: e >= 8 ? '' : '#ffd27a', clearSky: kind === 'clear' || kind === 'partly' };
+  SKY.memo = st; SKY.memoAt = key;
+  return st;
+}
+function mixHexRgb(a, b, k) { const p = c => c[0] === '#' ? hexRgb(c) : c.match(/\d+/g).map(Number), A = p(a), B = p(b); return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * k)).join(',')})`; }
+// 問主頁的位置與天氣：只在風格看得到窗外時、最多每 10 分鐘一次（畫面迴圈順手叫，不另開計時器）
+function skyAsk(force) {
+  if (STY.sky !== 'time' || BOARD_ONLY || !HOST || typeof HOST.sky !== 'function') return;
+  const now = Date.now(); if (!force && now - SKY.asked < SKY_ASK_MS) return;
+  SKY.asked = now;
+  Promise.resolve().then(() => HOST.sky()).then(r => {
+    if (!r || r.success === false) return;
+    SKY.place = r.place && isFinite(r.place.lat) && isFinite(r.place.lon) ? { lat: +r.place.lat, lon: +r.place.lon, tz: r.place.tz || '' } : null;
+    SKY.weather = r.weather && r.weather.kind ? r.weather : null; SKY.ver++; kick();
+  }).catch(() => {});
+}
+// 窗景上的一點：u（0～1，窗的左右）、v（0～1，窗的下上）
+function skyWindow(x, x0, y0, x1, y1, H, u1, u2, sky, i, room) {
+  const z0 = H * .36, z1 = H * .82, q = (a, b, c, d) => wq(x0, y0, x1, y1, lerp(u1, u2, a), lerp(u1, u2, b), lerp(z0, z1, c), lerp(z0, z1, d));
   const at = (u, v) => P(lerp(x0, x1, lerp(u1, u2, u)), lerp(y0, y1, lerp(u1, u2, u)), lerp(z0, z1, v)), k = hash2(i + Math.round(x0 * 3), Math.round(y0 * 7) + 11);
-  poly(x, q(0, 1, 0, 1), S.top); poly(x, q(0, 1, 0, .4), S.low);
-  if (sky === 'day') { if (k > .5) { const m = at(.72, .74); ellipse(x, m.x, m.y, 3.4, 3.4, '#ffd76a'); } else { const m = at(.35, .78); ellipse(x, m.x, m.y, 5, 2.2, 'rgba(255,255,255,.85)'); ellipse(x, m.x + 4, m.y - 1, 3.4, 2, 'rgba(255,255,255,.85)'); } }
-  else if (sky === 'night') { for (let s = 0; s < 3; s++) { const m = at(.15 + hash2(i, s) * .7, .62 + hash2(s, i) * .32); ellipse(x, m.x, m.y, .9, .9, 'rgba(230,233,245,.75)'); } if (k > .72) { const m = at(.74, .8); ellipse(x, m.x, m.y, 2.6, 2.6, '#e8e4cf'); } }
+  // 這扇窗看出去的是整片東→西景的哪一段（房間的左牆從前面到牆角、接著後牆到右邊）
+  const r = room, L = r ? r.h + r.w : 1, pn = (wx, wy) => !r ? .5 : Math.abs(wx - r.x) < 1e-6 && Math.abs(x0 - x1) < 1e-6 ? (r.y + r.h - wy) / L : (r.h + wx - r.x) / L;
+  const pa = pn(lerp(x0, x1, u1), lerp(y0, y1, u1)), pb = pn(lerp(x0, x1, u2), lerp(y0, y1, u2)), inWin = p => (p - pa) / (pb - pa);
+  const day = sky.dayK > .5, wk = sky.kind, anim = !RM;
+  poly(x, q(0, 1, 0, 1), sky.top); poly(x, q(0, 1, 0, .4), sky.low);
+  if (sky.clearSky && sky.dayK < .35) for (let s = 0; s < 3; s++) { const m = at(.15 + hash2(i, s) * .7, .62 + hash2(s, i) * .32); ellipse(x, m.x, m.y, .9, .9, `rgba(230,233,245,${.75 * (1 - sky.dayK / .35)})`); }   // 星星
+  const body = (b, rad, draw) => { const u = inWin(b.pan); if (b.el < -2 || u < -.1 || u > 1.1) return; const v = .14 + .8 * Math.min(1, Math.max(0, b.el) / 55); const m = at(Math.max(.08, Math.min(.92, u)), v); draw(m, rad); };
+  if (sky.clearSky || wk === 'cloudy' && sky.sun.el > 0) body(sky.sun, 3.6, (m, rd) => {   // 太陽：低的時候偏橘、大一點；陰天只剩一團淡光
+    const low = 1 - smooth(4, 20, sky.sun.el), dim = wk === 'cloudy' ? .35 : 1;
+    if (low > .2) ellipse(x, m.x, m.y, rd * 2.2, rd * 2.2, `rgba(255,190,110,${.25 * low * dim})`);
+    ellipse(x, m.x, m.y, rd + low, rd + low, wk === 'cloudy' ? 'rgba(255,245,220,.35)' : mixHex('#ffd76a', '#ff9a52', low)); });
+  if (sky.clearSky && sky.dayK < .6) body(sky.moon, 2.6, (m, rd) => {   // 月亮：亮的那一邊依盈虧（北半球漸盈亮在右）
+    ellipse(x, m.x, m.y, rd, rd, '#e8e4cf'); const sh = (sky.moon.waxing ? -1 : 1) * (sky.place.lat >= 0 ? 1 : -1), off = rd * 2 * sky.moon.lit;
+    if (sky.moon.lit < .97) ellipse(x, m.x + sh * off, m.y, rd, rd, sky.top); });
+  const nC = { partly: 1, cloudy: 3, rain: 3, sleet: 3, snow: 2 }[wk] || 0;   // 雲：慢慢往右飄（減少動態效果時不動）
+  for (let c = 0; c < nC + (wk === 'partly' && k > .6 ? 1 : 0); c++) {
+    const u = ((hash2(i * 5 + c, 3) + (anim ? T * .006 * (1 + c * .3) : 0)) % 1.2) - .1, v = .58 + hash2(c, i * 7) * .3, m = at(Math.max(.02, Math.min(.98, u)), v);
+    const cc = wk === 'partly' || wk === 'snow' ? (day ? 'rgba(255,255,255,.88)' : 'rgba(120,128,150,.6)') : (day ? 'rgba(196,202,210,.92)' : 'rgba(64,70,86,.85)');
+    if (u > -.05 && u < 1.05) { ellipse(x, m.x, m.y, 5.2, 2.2, cc); ellipse(x, m.x + 3.6, m.y - 1.2, 3.6, 2.1, cc); ellipse(x, m.x - 3.2, m.y - .5, 2.8, 1.7, cc); }
+  }
   [[.04, .2, .3 + .2 * k], [.22, .38, .5], [.4, .55, .22 + .15 * k], [.58, .78, .42], [.8, .96, .28]].forEach(([a, b, h], j) => {
-    poly(x, q(a, b, 0, h), S.city); if (sky !== 'day' && hash2(i * 3 + j, 5) > .45) poly(x, q(a + .04, a + .08, h * .45, h * .58), S.lit); });
+    poly(x, q(a, b, 0, h), sky.city); if (sky.lit && hash2(i * 3 + j, 5) > .45) poly(x, q(a + .04, a + .08, h * .45, h * .58), sky.lit); });
+  if (wk === 'rain' || wk === 'sleet' || wk === 'snow') {   // 雨：斜斜的線往下掉；雪：點慢慢飄；雨夾雪兩種都有
+    const n = sky.heavy ? 14 : sky.light ? 6 : 10;
+    for (let j = 0; j < n; j++) {
+      const snow = wk === 'snow' || (wk === 'sleet' && j % 2), sp = snow ? .18 : 1.1, u = .04 + .92 * hash2(j, i + 9), v = 1 - (((anim ? T * sp : 0) + hash2(i, j + 4)) % 1);
+      if (snow) { const m = at(Math.max(.03, Math.min(.97, u + (anim ? Math.sin(T * 1.3 + j) * .03 : 0))), v * .96); ellipse(x, m.x, m.y, 1, 1, 'rgba(245,248,255,.9)'); }
+      else { const a = at(u, Math.min(.98, v)), b = at(Math.max(0, u - .035), Math.max(0, v - .13)); x.strokeStyle = day ? 'rgba(225,232,245,.7)' : 'rgba(160,175,205,.6)'; x.lineWidth = 1; x.beginPath(); x.moveTo(a.x, a.y); x.lineTo(b.x, b.y); x.stroke(); }
+    }
+  }
+  if (wk === 'fog') poly(x, q(0, 1, 0, .85), day ? 'rgba(214,218,222,.62)' : 'rgba(70,76,88,.6)');
+  if (sky.thunder && anim && (T + i * .07) % 9 < .12) poly(x, q(0, 1, 0, 1), 'rgba(255,255,255,.4)');   // 打雷：偶爾一閃（減少動態效果時不閃）
   poly(x, q(0, 1, 0, 1), null, STY.frame, 1.6);
   if (STY.mullion) { poly(x, q(.485, .515, 0, 1), STY.mullion); poly(x, q(0, 1, .49, .52), STY.mullion); }
 }
@@ -3325,6 +3431,7 @@ function frame() {
   const now = performance.now(), gap = 1000 / (active() ? FPS_ON : FPS_IDLE);
   if (now - lastT < gap - 1) { schedule(); return; }   // 保險：兩幀至少隔 50ms（閒置 200ms）
   const dt = Math.min(.25, Math.max(0, (now - lastT) / 1000)); lastT = now; T += dt;
+  skyAsk(false);
   if (busy()) busyFrames++;
   try {
     if (V.k < 1) { V.k = Math.min(1, V.k + dt / .7); V.m = lerp(V.from, V.to, ease(V.k)); if (V.k >= 1) { V.m = V.to; V.tp = wantTp(); } }
@@ -3701,7 +3808,8 @@ function applyFocus(f) {
 }
 function showBoardOnly() { if (BOARD_ONLY && !boardShown) { boardShown = true; openView('board'); applyFocus(HOST && HOST.board && HOST.board.takeFocus && HOST.board.takeFocus()); } }
 window.Office = { update(snap) { goLive(); applyScale(); const r = update(snap); showBoardOnly(); return r; },
-                  board(f) { if (f && (f.task != null || f.peer)) applyFocus(f); else if (!BOARD_ONLY) openView('board'); } };   // 看板快捷鍵：辦公室開著時開關大廳的白板   // 真資料一進來，示範就停，示範按鈕也收起來
+                  board(f) { if (f && (f.task != null || f.peer)) applyFocus(f); else if (!BOARD_ONLY) openView('board'); },
+                  setTheme(id) { return BOARD_ONLY ? STY.id : applyTheme(id); } };   // 設定頁換風格時，開著的辦公室立刻換   // 看板快捷鍵：辦公室開著時開關大廳的白板   // 真資料一進來，示範就停，示範按鈕也收起來
 
 /* ══════════ 16. 示範資料與示範時間軸（全部經過 update）══════════ */
 const ago = m => DEMO_BASE - m * 60000;
@@ -3950,7 +4058,7 @@ window.__office = {
     for (const f of fp) if (!f.given) floor.push(f);
     const wall = Object.entries(WALL_OBJ).map(([id, o]) => ({ id, x0: o.q[0], x1: o.q[2], z0: o.q[6], z1: o.q[7] }));
     return { w: r.w, h: r.h, floor, fixtures, wall, rug: { x0: 8.9, x1: 12.6, y0: .5, y1: 4.25 } }; },
-  pause: on => { DEMO.paused = !!on; kick(); }, setTheme: id => applyTheme(id), theme: () => STY.id, themes: () => Object.keys(THEMES), skyAt: h => { SKY_AT = h; kick(); }, follow: key => startFollow(key), unfollow: () => stopFollow(), setMode: (m, i) => setMode(m, i), setArea: (id, i) => setArea(id, i),
+  pause: on => { DEMO.paused = !!on; kick(); }, setTheme: id => applyTheme(id), theme: () => STY.id, themes: () => Object.keys(THEMES), skyAt: (ms, place) => { SKY.fixMs = ms == null ? null : +ms; SKY.fixPlace = place || null; SKY.memo = null; kick(); }, setWeather: w => { SKY.fixWeather = w === undefined ? undefined : w; SKY.memo = null; kick(); }, sky: () => { const s = skyState(); return { phase: s.phase, sun: s.sun, moon: s.moon, kind: s.kind, place: s.place, top: s.top, asked: SKY.asked }; }, follow: key => startFollow(key), unfollow: () => stopFollow(), setMode: (m, i) => setMode(m, i), setArea: (id, i) => setArea(id, i),
   forceIdle: () => { lastInput = performance.now() - IDLE_AFTER - 1; goal = null; }, isActive: () => active(), busy: () => busy(), cam: () => ({ ...cam }), lod: () => lodFar ? 'far' : 'near',
   addBots: n => addBots(n), setTemps: n => { while (DB.temps.length < n) { const k = sim.tempN++; DB.temps.push({ id: 'tmp' + k, name: '臨時 #' + k, cli: '示範 CLI-' + 'ABC'[k % 3], state: 'working', opened_at: iso(clockMs() + k), task: { id: '—', title: TEMP_TASKS[k % 5], status: 'doing', next: '做完就關分頁' }, events: [], _lock: 1e9 }); } while (DB.temps.length > n) DB.temps.pop(); push(); },
   assignments: () => Object.fromEntries([...M.ents.values()].filter(e => e.kind === 'bot').map(e => [e.id, e.seatKey + (e.gone ? ' (已離開)' : '')])),
@@ -3968,6 +4076,7 @@ window.__office = {
 
 /* ══════════ 啟動 ══════════ */
 (function boot() {
+  if (!BOARD_ONLY) applyTheme(store.get('theme', 'night'));   // 辦公室風格（設定 → 辦公室；office.json 的 theme，手機 App 跟著桌面那台）
   const narrow = innerWidth <= 720, weak = (navigator.hardwareConcurrency || 8) < 4 || (navigator.deviceMemory || 8) < 4;
   const saved = store.get('mode', null), m = saved === 'flat' || saved === 'iso' ? saved : (narrow || weak ? 'flat' : 'iso');
   V.to = V.m = V.from = m === 'flat' ? 0 : 1; V.k = 1;

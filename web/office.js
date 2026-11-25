@@ -79,6 +79,14 @@
   const enabled = () => { const c = cfg(); return !!(c && c.settings && c.settings.experimental_office === true); };
 
   let prefs = null, saveTimer = 0;
+  const tzName = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (_) { return ''; } };
+  // The office's prefs as office.json has them. A key set before the office was ever opened would otherwise be saved alone over the
+  // person's seats (office_prefs_save writes the whole file): false when they could not be read, and then nothing is written.
+  async function loadPrefs() {
+    if (prefs) return true;
+    if (!source.has('office_prefs')) return false;
+    try { const r = await source.call('office_prefs'); if (!r || r.success === false || typeof r.prefs !== 'object') return false; prefs = prefs || r.prefs || {}; return true; } catch (_) { return false; }
+  }
   const clone = v => (v == null ? v : JSON.parse(JSON.stringify(v)));
   function savePrefs(now) {
     clearTimeout(saveTimer);
@@ -355,6 +363,9 @@
     // after an action in the popup that changed the lists (keep, take, accept…): the numbers on the desks and the toolbar button follow at once
     objectsChanged() { objsAt = 0; refreshObjects(true).then(() => { if (root.SFBoard && root.SFBoard.poll) root.SFBoard.poll(); }); },
     md: text => { const C = chatOf(); return C ? C.rules.md(String(text || ''), isZh()) : null; },
+    // The window's sky (office_sky.py): where this computer is (from its time zone, which only this window knows on Windows) and the
+    // weather there. office.html asks only while a theme with a view outside is on, at most every 10 minutes. null from an older app.
+    sky: () => (source.has('office_sky') ? source.call('office_sky', tzName(), true).catch(() => null) : Promise.resolve(null)),
     // A bot's settings editor (web/bots.js): the office closes first, the editor opens in the main window. false when there is none.
     editBot(role) {
       const B = root.SFBots;
@@ -545,7 +556,94 @@
       'The 辦公室 button at the top of the sidebar opens an office floor: bots (staff) at their desks, AI tabs that are not bots (interns) at a long table, a Claude Code tab\'s subagents (part-timers) beside it; who is busy, waiting on you or stuck. On for a new install.',
       '側欄最上面的「辦公室」鈕會打開一層辦公室：bot（正職）坐自己的桌子，不是 bot 的 AI 分頁（實習生）坐長桌，Claude Code 分頁派出去的 subagent（工讀生）站在旁邊；誰在忙、誰在等你、誰卡住，看圖就知道。新安裝預設打開。');
     sw.classList.toggle('on', enabled());
+    injectTheme();
+    injectWeather();
     injectShare();
+  }
+
+  // ── 辦公室風格 (Settings → Office): office.json's `theme`; the phone app shows the desktop's ─────────────────────────
+  // The names here and office.html's THEMES are the same five; night is the original look and is saved as no key at all.
+  const THEMES = [['night', 'Night blue', '夜藍'], ['wood', 'Warm wood', '暖木'], ['loft', 'Industrial loft', '工業風'], ['green', 'Greenhouse', '綠意'], ['nordic', 'Nordic light', '北歐淺色']];
+  const themeNow = () => { const v = prefs && prefs.theme; return THEMES.some(x => x[0] === v) ? v : 'night'; };
+  async function setTheme(id) {
+    if (!THEMES.some(x => x[0] === id)) return false;
+    if (!(await loadPrefs())) return false;            // never a lone key over the seats
+    if (id === 'night') delete prefs.theme; else prefs.theme = id;
+    savePrefs(true);
+    try { if (frame && frame.contentWindow && frame.contentWindow.Office && frame.contentWindow.Office.setTheme) frame.contentWindow.Office.setTheme(id); } catch (_) {}
+    injectWeather();
+    return true;
+  }
+  function injectTheme() {
+    const box = document.getElementById('sx-office');
+    if (!box) return;
+    let row = document.getElementById('sfo-theme');
+    if (!row) {
+      row = document.createElement('div');
+      row.id = 'sfo-theme';
+      row.className = 'sx-row';
+      row.innerHTML = '<div class="sx-txt"><div class="sx-label"></div><div class="sx-hint"></div></div>' +
+        '<div class="sx-ctl"><select id="setting-office-theme" class="sx-input"></select></div>';
+      box.appendChild(row);
+      row.querySelector('select').addEventListener('change', async function () {
+        const want = this.value;
+        if (!(await setTheme(want))) this.value = themeNow();
+      });
+      loadPrefs().then(() => { const sel = document.getElementById('setting-office-theme'); if (sel) sel.value = themeNow(); });
+    }
+    row.querySelector('.sx-label').textContent = t('Office style', '辦公室風格');
+    row.querySelector('.sx-hint').textContent = t(
+      'Changes only the look: floor, walls, furniture and the view outside the windows. Seats and what the colours of the screens, the red ! and the signs mean stay the same. The phone app shows the same style.',
+      '只換外觀：地板、牆、家具和窗外的景。座位，以及螢幕顏色、紅色 !、牌子代表的意思都不變。手機 App 看到的是同一個風格。');
+    const sel = row.querySelector('select');
+    sel.innerHTML = THEMES.map(([id, en, zh]) => `<option value="${id}">${t(en, zh)}</option>`).join('');
+    sel.value = themeNow();
+    sel.setAttribute('aria-label', t('Office style', '辦公室風格'));
+  }
+
+  // 窗外天氣 (settings.office_weather, on by default): the styles with a view outside show the weather where this computer is.
+  const weatherOn = () => { const c = cfg(); return !(c && c.settings && c.settings.office_weather === false); };
+  let placeWords = '', placeAsked = false;
+  function injectWeather() {
+    const box = document.getElementById('sx-office');
+    if (!box) return;
+    let row = document.getElementById('sfo-weather');
+    if (!row) {
+      row = document.createElement('div');
+      row.id = 'sfo-weather';
+      row.className = 'sx-row';
+      row.innerHTML = '<div class="sx-txt"><div class="sx-label"></div><div class="sx-hint"></div></div>' +
+        '<div class="sx-ctl"><button type="button" class="toggle-switch" id="setting-office-weather" role="switch"></button></div>';
+      box.appendChild(row);
+      row.querySelector('button').addEventListener('click', async function () {
+        const c = cfg(), a = api();
+        if (!c || !a) return;
+        c.settings = c.settings || {};
+        c.settings.office_weather = !weatherOn();
+        injectWeather();
+        try { await a.save_settings(JSON.stringify(c.settings)); } catch (_) { /* the page keeps it; the next save carries it */ }
+      });
+    }
+    if (!placeAsked && source.has('office_sky')) {      // the place only: asking it never fetches weather
+      placeAsked = true;
+      source.call('office_sky', tzName(), false).then(r => {
+        const p = r && r.place;
+        if (p && isFinite(p.lat) && isFinite(p.lon)) {
+          const ns = p.lat >= 0 ? t('N', '北緯') : t('S', '南緯'), ew = p.lon >= 0 ? t('E', '東經') : t('W', '西經');
+          placeWords = isZh() ? `${p.tz || ''}（${ns} ${Math.abs(p.lat).toFixed(1)}°、${ew} ${Math.abs(p.lon).toFixed(1)}°）` : `${p.tz || ''} (${Math.abs(p.lat).toFixed(1)}° ${ns}, ${Math.abs(p.lon).toFixed(1)}° ${ew})`;
+          injectWeather();
+        }
+      }).catch(() => {});
+    }
+    row.querySelector('.sx-label').textContent = t('Weather outside the windows', '窗外天氣');
+    const where = placeWords ? t(`Where: ${placeWords}, from this computer's time zone. `, `位置：${placeWords}，由這台電腦的時區估算。`) : '';
+    row.querySelector('.sx-hint').textContent = t(
+      `In every style but Night blue, the sun and moon outside rise in the east and set in the west at this computer's place and time. With this on, the windows also show the weather there (clouds, rain, snow, fog, thunder). ${where}Weather from MET Norway (CC BY 4.0): ShellBot asks at most every 30 minutes, only while the office is open with such a style, and sends only this approximate place.`,
+      `夜藍以外的風格，窗外的太陽、月亮依這台電腦的位置和時間東升西落。打開時窗外也照當地的天氣畫（雲、雨、雪、霧、打雷）。${where}天氣資料來自 MET Norway（挪威氣象局，CC BY 4.0）：只在辦公室開著、用這類風格時才問，最多每 30 分鐘一次，只送這個大約的位置。`);
+    const sw = row.querySelector('.toggle-switch');
+    sw.classList.toggle('on', weatherOn());
+    sw.setAttribute('aria-checked', String(weatherOn()));
+    sw.setAttribute('aria-label', row.querySelector('.sx-label').textContent);
   }
 
   // 「不分享任務給隔壁電腦」 (settings.link_share_tasks_off, default off = shared as before): a paired computer asking for
