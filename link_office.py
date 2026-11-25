@@ -300,6 +300,7 @@ METHODS = {
     "office_prefs": (_none, False, lambda h, v, l, p: h.office_prefs(), None),
     "bots_state": (_none, False, lambda h, v, l, p: h.bots_state(), _bots_state),
     "office_tabs": (_none, False, lambda h, v, l, p: h.office_tabs(), None),
+    "office_sky": (_none, False, lambda h, v, l, p: h.office_sky("", True), None),   # the desktop's own place: the phone cannot pass a zone
     "tasks_overview": (_none, False, lambda h, v, l, p: h.tasks_overview(), None),
     "task_detail": (_args(_task), False, lambda h, v, l, p: h.task_detail(*v), None),
     "schedules_list": (_none, False, lambda h, v, l, p: h.schedules_list(), _schedules),

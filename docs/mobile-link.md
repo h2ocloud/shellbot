@@ -364,11 +364,11 @@ App 用 WKWebView 開這台的 `web/office.html`，和桌面版的辦公室是�
 
 **`/link/ping`** 多一欄 `"office": {"bridge": 1, "assets": "<12 字 hash>", "enabled": <這台辦公室和 Bots 都開著>}`。沒有這一欄（舊版）或 `enabled` 是 false，App 不顯示入口；`bridge` 比 App 支援的大，提示更新 App。`assets` 是下面那張檔案表的整包 hash，變了就重新抓。
 
-**`POST /link/office/api {"method", "args": [...], "lang": "zh"/"en"}`**（`link_office.py`）：呼叫桌面的同名 js_api 方法，回 `{"success": true, "result": <它的答案>}`。只開放這 13 個，都是唯讀：
+**`POST /link/office/api {"method", "args": [...], "lang": "zh"/"en"}`**（`link_office.py`）：呼叫桌面的同名 js_api 方法，回 `{"success": true, "result": <它的答案>}`。只開放這 14 個，都是唯讀：
 
 | method | args |
 |---|---|
-| `office_prefs`、`bots_state`、`office_tabs`、`tasks_overview`、`schedules_list`、`link_peer_bots`、`link_peer_tasks`、`office_objects` | `[]` |
+| `office_prefs`、`bots_state`、`office_tabs`、`tasks_overview`、`schedules_list`、`link_peer_bots`、`link_peer_tasks`、`office_objects`、`office_sky` | `[]` |
 | `task_detail` | `[任務編號]`（整數或 `"#12"`） |
 | `office_object_list` | `[物件 id, 篩選的 JSON 字串]` |
 | `office_object_item` | `[物件 id, 項目 id]` |
@@ -376,6 +376,7 @@ App 用 WKWebView 開這台的 `web/office.html`，和桌面版的辦公室是�
 | `office_ops_live` | `[true/false]`（維運視窗開著時每 60 秒說一次「還在看」，App 到背景時送 false） |
 
 - `office_tabs` 是這次新增的：這台的分頁 `{"success", "now", "bots_on", "tabs": [{"sid", "label", "cmd", "cli", "role", "kind", "state", "line", "narration", "loop", "opened_at"}], "helpers": {sid: [...]}}`，`state` 是 `working`／`decision`／`stuck`／`done`／`idle`。全部取自狀態監控的快照，不讀對話紀錄也不抓畫面。`cmd` 只有程式名，不含路徑、參數、環境變數。
+- `office_sky`：這台的所在地和天氣，給辦公室主題的窗外天空用。`{"success", "place": {"lat", "lon", "tz", "source"} 或 null, "weather": {"kind", "thunder", "heavy", "light", "showers", "cloud", "symbol", "at"} 或 null, "weather_on", "credit": "MET Norway"}`。地點取自這台電腦的時區（手機不能傳時區，天空是這台的）；天氣來自 MET Norway（CC BY 4.0），桌面設定 `settings.office_weather` 關掉就是 `null`，超過 3 小時沒更新也是 `null`。App 的頁面最多每 10 分鐘問一次。
 - 錯誤：`{"success": false, "code", "message"}`。`no_method`（403，不在表上）、`readonly`（403，寫入類的方法）、`bad_args`（400）、`off`（200，這台的辦公室關著）、`timeout`（8 秒）、`too_big`（答案超過 1 MB）、`error`（錯誤內容不外流）。單向配對裡不能操作這台的一方，由 `_bots_route` 回 403。
 - `bots_state` 拿掉 `memory_root`（本機路徑）；`schedules_list` 只留畫面用到的欄位，排程的成員只給個數，不給指令與 plist。
 

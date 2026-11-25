@@ -30,8 +30,10 @@
  *   every 3 s     office_tabs, link_peer_bots (+ bots_state at the start and every 30 s)
  *   every 9 s     tasks_overview, link_peer_tasks
  *   every 30 s    office_objects
- *   on demand     task_detail, schedules_list, office_object_list, office_object_item, office_ops_view; office_ops_live (the ops
- *                 window's 60 s "I am looking" heartbeat, and false when the app goes to the background)
+ *   on demand     office_sky (host.sky(): the desktop's place and weather for the themes' windows; only when the page calls
+ *                 it, never from the rounds above; answered from the last good answer for 10 min, a failed ask is retried
+ *                 after 1 min), task_detail, schedules_list, office_object_list, office_object_item, office_ops_view;
+ *                 office_ops_live (the ops window's 60 s "I am looking" heartbeat, and false when the app goes to the background)
  * One round at a time; a failure keeps the last answer (offline / timeout back the rounds off, up to 30 s).
  *
  * ── the web/*.js modules it brings, instead of the main window's globals ───────────────────────────────────────────
@@ -44,7 +46,7 @@
   'use strict';
 
   const BRIDGE = 1;                         // the bridge version this file speaks (/link/ping office.bridge)
-  const TICK_MS = 3000, TASKS_MS = 9000, OBJECTS_MS = 30000, BOTS_MS = 30000, BACKOFF_MAX = 30000, FIRST_MS = 30000, SCRIPT_GRACE_MS = 5000;
+  const TICK_MS = 3000, TASKS_MS = 9000, OBJECTS_MS = 30000, BOTS_MS = 30000, BACKOFF_MAX = 30000, FIRST_MS = 30000, SCRIPT_GRACE_MS = 5000, SKY_MS = 600000, SKY_RETRY_MS = 60000;
   const SHARED_KEYS = ['seats', 'items', 'groups', 'arrange'];   // this computer's own, read only here
   const clone = v => (v == null ? v : JSON.parse(JSON.stringify(v)));
   const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -189,6 +191,22 @@
       async peerLive() { return { success: false }; },
     };
 
+    // ── the sky (the desktop's place and weather): asked only when the page calls host.sky(), at most every 10 min ──
+    let skyAns = null, skyNext = 0, skyJob = null;
+    function sky() {
+      if (now() < skyNext) return Promise.resolve(skyAns);
+      if (!skyJob) {
+        skyJob = api('office_sky').then(r => {
+          const good = r.ok && r.data.success !== false;
+          if (good) skyAns = r.data;                              // a failure keeps the last answer
+          skyNext = now() + (good ? SKY_MS : SKY_RETRY_MS);
+          skyJob = null;
+          return skyAns;
+        });
+      }
+      return skyJob;
+    }
+
     // ── the host office.html is given ─────────────────────────────────────────
     const host = {
       get: store.get, set: store.set,
@@ -197,7 +215,7 @@
       boardOnly: () => false,
       isBoardKey: () => false,
       uiScale: () => { const u = Number(app().uiScale); return u >= 0.7 && u <= 1.6 ? u : 1; },
-      chat, board, objects,
+      chat, board, objects, sky,
       objectsChanged() { objsAt = 0; tasksAt = 0; tick(); },
       md: text => (rules && rules.md ? rules.md(String(text || ''), isZh()) : null),
       // a bot's settings editor is the app's: the page keeps open under it (it is the app that decides to leave)

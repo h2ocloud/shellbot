@@ -8,6 +8,7 @@
  *     call (the personnel 編輯執掌 answered here); a person is handed to the app: native openChat / editBot / openUrl / close
  *   - active(false) stops the polling (and the ops window's heartbeat), active(true) polls at once
  *   - ready after the first snapshot; error: app_too_old, off, no_snapshot, script; a failed round keeps the last snapshot
+ *   - host.sky(): asks office_sky once, then the cache for 10 min, asks again after; a failure keeps the last answer; the rounds never ask it
  *   - nothing happens without window.SFOfficeApp (the desktop's iframe loads the same office.html)
  * Run: node tests_office_app_host.js */
 'use strict';
@@ -152,6 +153,33 @@ function world(opts) {
     H.chat.has('b:main') === true && H.chat.has('b:qa') === false && H.chat.has('t:s2') === true && H.chat.has('t:zzz') === false);
   check('chat.has for the paired computer: bot with a tab, asleep one, intern',
     H.chat.has('p:PEER1/a') === true && H.chat.has('p:PEER1/b') === false && H.chat.has('q:PEER1/rq') === true);
+
+  console.log('the sky: asked only by host.sky(), every 10 min at most');
+  let skyN = 0, skyMode = 'ok';
+  const SKY1 = { success: true, place: { lat: 25.05, lon: 121.5, tz: 'Asia/Taipei', source: 'tz' }, weather: { kind: 'rain', at: 1 }, weather_on: true, credit: 'MET Norway' };
+  const sk = world({ answers: { office_sky: () => { skyN++; return skyMode === 'ok' ? Object.assign({}, SKY1, { n: skyN }) : { success: false, code: 'error' }; } } });
+  sk.h.init(); await flush();
+  for (let i = 0; i < 12; i++) { sk.clock += 3100; await sk.fire(3000); }
+  check('the regular rounds (tabs, tasks, objects, bots) never ask office_sky', skyN === 0 && !sk.calls().includes('office_sky'), sk.calls());
+  const a1 = await sk.h.host.sky();
+  check('sky() asks office_sky once and resolves to the answer', skyN === 1 && a1 && a1.place.tz === 'Asia/Taipei' && a1.n === 1, a1);
+  const a2 = await sk.h.host.sky(); sk.clock += 599000; const a3 = await sk.h.host.sky();
+  check('a second call, and one just under 10 min later, use the cache', skyN === 1 && a2.n === 1 && a3.n === 1, skyN);
+  const both = await Promise.all([(sk.clock += 2000, sk.h.host.sky()), sk.h.host.sky()]);
+  check('after 10 min it asks again (once, for two callers at the same time)', skyN === 2 && both[0].n === 2 && both[1].n === 2, skyN);
+  skyMode = 'bad'; sk.clock += 600001;
+  const a4 = await sk.h.host.sky();
+  check('a failed answer keeps the previous one', skyN === 3 && a4 && a4.n === 2, a4);
+  await sk.h.host.sky();
+  check('…and is not asked again at once (1 min back-off)', skyN === 3, skyN);
+  skyMode = 'ok'; sk.clock += 61000;
+  const a5 = await sk.h.host.sky();
+  check('…but after a minute it is, and a good answer replaces the old one', skyN === 4 && a5.n === 4, a5);
+  const sk0 = world({ answers: { office_sky: () => ({ success: false, code: 'off' }) } });
+  check('a failure with nothing before it resolves to null', (await sk0.h.host.sky()) === null);
+  const skOld = world({ answers: { office_sky: undefined } });
+  skOld.h.init(); await flush();
+  check('an old desktop (no such call) resolves to null', (await skOld.h.host.sky()) === null && skOld.calls().filter(m => m === 'office_sky').length === 1);
 
   console.log('read only: the app does the talking');
   check('the chat host has only has / open / openUrl', JSON.stringify(Object.keys(H.chat).sort()) === '["has","open","openUrl"]', Object.keys(H.chat));

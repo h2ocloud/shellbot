@@ -12,6 +12,8 @@ js_api:
                             resolved (StatusTracker.transcript_path: no lookup, no subprocess);
                             only a folder listing, stats and the small meta files. Refused while
                             the switch is off.
+  office_sky(tz, want_weather)  the place (from the time zone the main window reports) and the weather outside, for the
+                            themes' windows: office_sky.answer (never waits for the network). Refused while the switch is off.
 """
 import json
 import os
@@ -22,6 +24,7 @@ import time
 import agent_status
 import link_office
 import office_helpers
+import office_sky
 import sf_config
 from api_host import main
 from sf_log import _swallow
@@ -102,6 +105,15 @@ class OfficeApiMixin:
         except Exception as e:
             _swallow("office_tabs")
             return json.dumps({"success": False, "code": "error", "message": str(e)[:200], "tabs": [], "helpers": {}})
+
+    def office_sky(self, tz: str = "", want_weather: bool = True) -> str:
+        if not self._office_on():
+            return json.dumps({"success": False, "code": "off"})
+        try:
+            return json.dumps(office_sky.answer(main.load_config(), tz, bool(want_weather)), ensure_ascii=False)
+        except Exception as e:
+            _swallow("office_sky")
+            return json.dumps({"success": False, "code": "error", "message": str(e)[:200]})
 
     def _link_office(self, args: dict) -> dict:
         """POST /link/office/api from a paired phone (api_remote's dispatcher; link_office has the table of calls)."""
