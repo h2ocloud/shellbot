@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "reviewed_for": "0.64",
+  "reviewed_for": "0.65",
   "tours": {
     "first_run": [
       "new-tab",
@@ -30,6 +30,7 @@
   },
   "no_guide": {},
   "added_without_guide": {
+    "0.65.0": "The office in the phone app is the same office page, opened from the phone app (its own build); nothing new on the desktop's screen.",
     "0.64.3": "A bot looking at its own job once a day is one more switch in the Bots rows of Settings, under the tidy-up one; the bots entry points there and now says it. `sfctl bots-self` is a command for the bots themselves.",
     "0.64.1": "Tidying a nearly full MEMORY.md is one more switch in the Bots rows of Settings, next to the memory-saving one; the bots entry points there and now says it. The memory/ topic files and the bookshelf's tidy-up button live inside the office (an iframe the tour cannot point into); the bookshelf entry says it.",
     "0.64.0": "GitHub and Figma are more rows on the Connect page, which the connect entry points to; the usage pill and the accounts panel now show the same numbers, nothing new on the screen; `sfctl call` is a command for the AI tabs.",
