@@ -224,7 +224,9 @@ def _fetch_now(place, fetch, now):
 def _kick(place, now, fetch):
     """Start the one worker thread unless one runs or it is too soon (next_ok: Expires, 30 min, back-off). _LOCK held."""
     t = _S["thread"]
-    if (t is not None and t.is_alive()) or now < _S["next_ok"]:
+    c = _S["cache"]
+    moved = bool(c) and c.get("key") != _key(place) and _S["fails"] == 0   # another place is another request: its own 30 min
+    if (t is not None and t.is_alive()) or (now < _S["next_ok"] and not moved):
         return
     _S["thread"] = threading.Thread(target=_fetch_now, args=(place, fetch or _http, now), daemon=True, name="office-sky")
     _S["thread"].start()

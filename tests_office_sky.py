@@ -274,6 +274,16 @@ check("the entry that covers now: the first hour, the next hour, and the last on
 check("before the first entry: the first", pick(NOW - 7200) == "lightrainshowers_day")
 check("another place's weather is not shown", S.answer(CFG, "Europe/London", True, now=NOW + 1, fetch=Stub((503, {}, b"")))["weather"] is None)
 S.idle()
+fresh()
+st = Stub(ok200(doc()))
+ask(st)
+S._S["next_ok"] = NOW + 10 ** 9                     # Taipei's own wait
+st2 = Stub(ok200(doc()))
+S.answer(CFG, "Europe/London", True, now=NOW + 60, fetch=st2); S.idle()
+check("a new place is asked at once (another request, its own 30 min)", len(st2.calls) == 1 and "lat=51." in st2.calls[0][0], st2.calls)
+st3 = Stub(ok200(doc()))
+S.answer(CFG, "Europe/London", True, now=NOW + 120, fetch=st3); S.idle()
+check("…and then not again before its own 30 min", len(st3.calls) == 0)
 
 # ── 6. the time zone ─────────────────────────────────────────────────────────
 print("the time zone")
