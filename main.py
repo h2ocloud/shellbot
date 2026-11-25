@@ -254,6 +254,9 @@ DEFAULT_CONFIG = {
         # office floor behind the 辦公室 button of the sidebar's top row. On for a new install; one that predates it
         # keeps off (bots.keep_old_install_office_setting). Off: the button shows an intro card, no iframe, no timer.
         "experimental_office": True,
+        # The office themes' windows show the real sky: the sun from this computer's time zone, and the current weather from
+        # MET Norway (office_sky.py; sends this computer's rough location, the zone's main city, to api.met.no). Off: no request.
+        "office_weather": True,
         # The office's ops TV (office_ops.py): a lobby-wall TV for this computer's CPU, memory, network and disk,
         # a red dot and one system notification when something stays wrong. Off: no sampler thread runs.
         "experimental_ops": False,

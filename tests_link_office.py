@@ -99,6 +99,10 @@ class Host(api_office.OfficeApiMixin):
         return json.dumps({"enabled": True, "roster": {"a": {"label": "A"}}, "sessions": {}, "kinds": {}, "primary": "a",
                            "memory_root": "/Users/someone/memory"})
 
+    def office_sky(self, tz="", want_weather=True):
+        self._rec("office_sky", tz, want_weather)
+        return json.dumps({"success": True, "place": None, "weather": None, "weather_on": True, "credit": "MET Norway"})
+
     def tasks_overview(self):
         self._rec("tasks_overview")
         return json.dumps({"success": True, "decisions": [], "stuck": [], "open": [], "deliverables": {"new": 0}})
@@ -254,10 +258,10 @@ try:
 
     print("1. /link/office/api: the table")
     expect = {"office_prefs": [], "bots_state": [], "office_tabs": [], "tasks_overview": [], "task_detail": [12],
-              "schedules_list": [], "link_peer_bots": [], "link_peer_tasks": [], "office_objects": [],
+              "schedules_list": [], "link_peer_bots": [], "link_peer_tasks": [], "office_objects": [], "office_sky": [],
               "office_object_list": ["deliverables", "{}"], "office_object_item": ["deliverables", "d-1"],
               "office_ops_view": ["cpu"], "office_ops_live": [True]}
-    check("the table is exactly the thirteen calls", set(expect) == set(link_office.METHODS), sorted(set(expect) ^ set(link_office.METHODS)))
+    check("the table is exactly the fourteen calls", set(expect) == set(link_office.METHODS), sorted(set(expect) ^ set(link_office.METHODS)))
     ha.sessions = {}
     for m, args in expect.items():
         r = api(b, pa, m, args, lang="zh")
@@ -266,6 +270,7 @@ try:
               and r.signed_over(r.body) and "_http" not in j, (r.status, j))
     check("the language reached the calls that take it", ("office_objects", "zh") in ha.called and ("office_object_list", "deliverables", "{}", "zh") in ha.called
           and ("office_object_item", "deliverables", "d-1", "zh") in ha.called, ha.called)
+    check("office_sky is asked with no zone (the phone cannot pass one) and the weather on", ("office_sky", "", True) in ha.called, ha.called)
     check("task_detail got a number (and '#12' too)", ("task_detail", 12) in ha.called and api(b, pa, "task_detail", ["#7"]).json()["success"]
           and ("task_detail", 7) in ha.called)
     bs = api(b, pa, "bots_state").json()["result"]
