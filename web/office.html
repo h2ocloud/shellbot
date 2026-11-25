@@ -1264,24 +1264,26 @@ function gridLines(x, x0, y0, w, h, col) {
 }
 function drawPlaza(x, far) {
   const pz = M.plaza; if (!pz) return;
-  const slab = { l: '#191b29', r: '#13141e', t: '#1e2131' };
+  const slab = STY.slab;
   if (M.arr) ARRG.floor(x, far, 'yard');   // 整理位置：大樓四周的院子先鋪，大樓的地板鋪在它上面
-  box(x, pz.lobby.x, pz.lobby.y, pz.lobby.w, pz.lobby.h, -SLAB, SLAB, { ...slab, t: '#22253a' });
-  if (pz.zone.w > 0) { box(x, pz.zone.x, pz.zone.y, pz.zone.w, pz.zone.h, -SLAB, SLAB, slab); if (!far) gridLines(x, pz.zone.x, pz.zone.y, Math.round(pz.zone.w), Math.round(pz.zone.h), 'rgba(192,202,245,.028)'); }
+  box(x, pz.lobby.x, pz.lobby.y, pz.lobby.w, pz.lobby.h, -SLAB, SLAB, { ...slab, t: STY.lobbyTop });
+  if (pz.zone.w > 0) { box(x, pz.zone.x, pz.zone.y, pz.zone.w, pz.zone.h, -SLAB, SLAB, slab); if (!far) floorLines(x, pz.zone.x, pz.zone.y, pz.zone.w, pz.zone.h, STY.seam); }
   // 中央走廊的導引線
-  if (!far && pz.zone.w > 0) { const a = P(M.spineX, .6), b = P(M.spineX, pz.zone.h - .6); x.setLineDash([2, 8]); x.strokeStyle = 'rgba(192,202,245,.12)'; x.lineWidth = 2; x.beginPath(); x.moveTo(a.x, a.y); x.lineTo(b.x, b.y); x.stroke(); x.setLineDash([]); }
+  if (!far && pz.zone.w > 0) { const a = P(M.spineX, .6), b = P(M.spineX, pz.zone.h - .6); x.setLineDash([2, 8]); x.strokeStyle = STY.guide; x.lineWidth = 2; x.beginPath(); x.moveTo(a.x, a.y); x.lineTo(b.x, b.y); x.stroke(); x.setLineDash([]); }
   if (M.arr) { ARRG.floor(x, far, 'links'); return; }   // 整理位置：走道和連線在 office_arrange.js；下面是原來的直排連線橋
   // 到隔壁電腦的連線橋
   let fromY = M.LH;   // 第一台從大廳前緣接過去，第二台以後從前一台的前緣接（不穿過別的房間）
   for (const r of [...M.rooms.values()].filter(q => q.kind === 'peer').sort((a, b) => a.ty - b.ty)) {
     const y0 = fromY; fromY = r.y + r.h;
-    box(x, r.x + 1.2, y0, 1.1, Math.max(0, r.y - y0), -SLAB * .6, SLAB * .6, { l: '#171925', r: '#12131b', t: '#1c1f2e' });
+    box(x, r.x + 1.2, y0, 1.1, Math.max(0, r.y - y0), -SLAB * .6, SLAB * .6, STY.bridge);
     const a = P(r.x + 1.75, y0 - .2, 1), b = P(r.x + 1.75, r.y + .3, 1);
     x.setLineDash([5, 7]); x.lineDashOffset = RM ? 0 : -T * 14; x.strokeStyle = alpha(COL.teal, .6); x.lineWidth = 2; x.beginPath(); x.moveTo(a.x, a.y); x.lineTo(b.x, b.y); x.stroke(); x.setLineDash([]); x.lineDashOffset = 0;
   }
 }
-function wallFace(x, x0, y0, x1, y1, H, n, skip, glow) { // 窗（夜景）
+function wallFace(x, x0, y0, x1, y1, H, n, skip, glow) { // 窗（夜景；風格的 sky 是 'time' 時依當地時間畫窗外）
+  const sky = STY.sky === 'time' ? skyPhase() : '';
   for (let i = 0; i < n; i++) { if (skip && skip(i)) continue; const u1 = (i + .14) / n, u2 = (i + .86) / n;
+    if (sky) { skyWindow(x, x0, y0, x1, y1, H, u1, u2, sky, i); continue; }
     poly(x, wq(x0, y0, x1, y1, u1, u2, H * .36, H * .82), '#1b2442', 'rgba(125,207,255,.16)', 1);
     poly(x, wq(x0, y0, x1, y1, u1, u2, H * .74, H * .82), 'rgba(125,207,255,.10)');
     const k = hash2(i + Math.round(x0 * 3), Math.round(y0 * 7) + n); if (k > .45) poly(x, wq(x0, y0, x1, y1, lerp(u1, u2, .2), lerp(u1, u2, .26), H * .45, H * .52), 'rgba(224,175,104,.35)');
@@ -1289,14 +1291,14 @@ function wallFace(x, x0, y0, x1, y1, H, n, skip, glow) { // 窗（夜景）
 }
 const WALL = { lobby: { l: '#2b2f47', r: '#252840', t: '#3d4363' }, zone: { l: '#292d44', r: '#23263b', t: '#3a4060' }, peer: { l: '#263045', r: '#20293c', t: '#3a4b68' } };
 function drawRoomShell(x, r, far) {
-  const th = .22, Hh = r.wallH, cols = WALL[r.kind], edge = 'rgba(192,202,245,.12)';
-  if (r.kind === 'peer') { box(x, r.x, r.y, r.w, r.h, -SLAB, SLAB, { l: '#191b29', r: '#13141e', t: '#1e2738' }); }
-  if (r.kind === 'zone') { poly(x, fquad(r.x, r.y, r.x + r.w, r.y + r.h, .1), shade(teamCol(r.team), -.84)); poly(x, fquad(r.x, r.y, r.x + r.w, r.y + r.h, .1), null, alpha(teamCol(r.team), .22), 1.2); }
-  if (!far && r.kind !== 'lobby') gridLines(x, r.x, r.y, Math.round(r.w), Math.round(r.h), 'rgba(192,202,245,.035)');
+  const th = .22, Hh = r.wallH, cols = WALL[r.kind], edge = STY.wallEdge;
+  if (r.kind === 'peer') { box(x, r.x, r.y, r.w, r.h, -SLAB, SLAB, { ...STY.slab, t: STY.peerTop }); }
+  if (r.kind === 'zone') { poly(x, fquad(r.x, r.y, r.x + r.w, r.y + r.h, .1), zoneFloor(teamCol(r.team))); poly(x, fquad(r.x, r.y, r.x + r.w, r.y + r.h, .1), null, alpha(teamCol(r.team), .22), 1.2); }
+  if (!far && r.kind !== 'lobby') floorLines(x, r.x, r.y, r.w, r.h, STY.seam);
   if (r.kind === 'lobby') {
-    if (!far) gridLines(x, r.x, r.y, r.w, Math.round(r.h), 'rgba(192,202,245,.035)');
-    poly(x, fquad(8.9, .5, 12.6, 4.25, .2), '#2a2440', alpha(COL.purple, .35), 1.4);      // 秘書長的地毯
-    if (!far) poly(x, fquad(9.15, .75, 12.35, 4.0, .2), null, alpha(COL.purple, .14), 1);
+    if (!far) floorLines(x, r.x, r.y, r.w, r.h, STY.seam);
+    poly(x, fquad(8.9, .5, 12.6, 4.25, .2), STY.rug[0], STY.rug[1], 1.4);      // 秘書長的地毯
+    if (!far) poly(x, fquad(9.15, .75, 12.35, 4.0, .2), null, STY.rug[2], 1);
     const tx1 = 1.6 + Math.min(TMAX, M.nT) * 1.2 + .25;                                       // 實習生區的虛線框
     x.setLineDash([6, 5]); poly(x, fquad(1.35, 4.55, tx1, M.LH - .15, .2), alpha(COL.yellow, .05), alpha(COL.yellow, .35), 1.2); x.setLineDash([]);
   }
@@ -1310,11 +1312,12 @@ function drawRoomShell(x, r, far) {
     poly(x, wq(r.x, d0, r.x, d1, 0, 1, 0, Hh - 14), 'rgba(10,11,18,.55)', alpha(COL.green, .45), 1.2);
   } else box(x, r.x - th, r.y, th, r.h, 0, Hh, cols, edge);
   if (far) return;
-  poly(x, wq(r.x, r.y, r.x + r.w, r.y, 0, 1, 0, 4), 'rgba(0,0,0,.18)'); poly(x, wq(r.x, r.y, r.x, r.y + r.h, 0, 1, 0, 4), 'rgba(0,0,0,.18)');
+  if (STY.brick) for (let z = 7; z < Hh - 4; z += 7) { poly(x, wq(r.x, r.y, r.x + r.w, r.y, 0, 1, z, z + .8), STY.brick); poly(x, wq(r.x, r.y, r.x, r.y + r.h, 0, 1, z, z + .8), STY.brick); }   // 磚牆的灰縫
+  poly(x, wq(r.x, r.y, r.x + r.w, r.y, 0, 1, 0, 4), STY.base); poly(x, wq(r.x, r.y, r.x, r.y + r.h, 0, 1, 0, 4), STY.base);
   if (r.kind === 'lobby') {
     wallFace(x, r.x, r.y, r.x + r.w, r.y, Hh, 7, i => i <= 2 || i === 4);
     wallFace(x, r.x, r.y, r.x, r.y + Math.min(r.h, 5.5), Hh, 3, i => i === 0);
-    drawLobbyBoard(x); drawLobbyCalendar(x); drawLobbyTV(x); OBJ.draw(x, { P, poly, box, ellipse, wq, COL, FONT, hover: hoverObj });                                                       // 白板＋便利貼、日曆（§11.7：都是可以點的）
+    drawLobbyBoard(x); drawLobbyCalendar(x); drawLobbyTV(x); OBJ.draw(x, { P, poly, box, ellipse, wq, COL, FONT, TH: STY, hover: hoverObj });                                                       // 白板＋便利貼、日曆（§11.7：都是可以點的）
   } else if (r.kind === 'zone') {
     wallFace(x, r.x, r.y, r.x + r.w, r.y, Hh, 4, null, teamCol(r.team));
     poly(x, wq(r.x, r.y, r.x + r.w, r.y, 0, 1, Hh - 8, Hh - 4), alpha(teamCol(r.team), .55));   // 團隊色帶
@@ -1328,7 +1331,105 @@ function drawRoomShell(x, r, far) {
 /* ══════════ 7. 家具與人物（近景）══════════ */
 const DESK = { t: '#3a3f5c', l: '#2a2e45', r: '#22263a' }, BIGDESK = { t: '#4a4068', l: '#352d4f', r: '#2a2440' }, TABLE = { t: '#43405a', l: '#302d44', r: '#272538' };
 const CHAIR = { t: '#2f3349', l: '#282b40', r: '#202336' }, CHAIRB = { t: '#3d425f', l: '#363b56', r: '#2c3048' }, MON = { t: '#2a2d40', l: '#16161e', r: '#16161e' };
-const EDGE = 'rgba(192,202,245,.10)';
+let EDGE = 'rgba(192,202,245,.10)';   // 風格（applyTheme）會換
+/* ══════════ 6.9 辦公室風格（theme）══════════
+   風格只換環境：背景、地板、牆、窗外、家具、植物、地毯。狀態的顏色（亮螢幕＝在忙、紅「!」、黃牌、咖啡杯）、人物、頭像、
+   座位、資料都不動。night 是原本的樣子；其他風格只寫跟 night 不同的部分。sky：'night' 原本的夜景窗，'time' 依看的人當地時間
+   白天／黃昏／夜晚。floor：'grid' 格線、'planks' 木地板、'tiles' 磁磚。 */
+const THEMES = {
+  night: { name: { en: 'Night blue', zh: '夜藍' },
+    bg: ['#222539', '#15161f'], slab: { l: '#191b29', r: '#13141e', t: '#1e2131' }, lobbyTop: '#22253a', peerTop: '#1e2738',
+    bridge: { l: '#171925', r: '#12131b', t: '#1c1f2e' }, floor: 'grid', seam: 'rgba(192,202,245,.035)', guide: 'rgba(192,202,245,.12)', zoneShade: -.84, zoneMix: 0,
+    wall: { lobby: { l: '#2b2f47', r: '#252840', t: '#3d4363' }, zone: { l: '#292d44', r: '#23263b', t: '#3a4060' }, peer: { l: '#263045', r: '#20293c', t: '#3a4b68' } },
+    wallEdge: 'rgba(192,202,245,.12)', base: 'rgba(0,0,0,.18)', brick: '', sky: 'night', frame: 'rgba(125,207,255,.16)', mullion: '',
+    rug: ['#2a2440', 'rgba(187,154,247,.35)', 'rgba(187,154,247,.14)'],
+    desk: { t: '#3a3f5c', l: '#2a2e45', r: '#22263a' }, bigdesk: { t: '#4a4068', l: '#352d4f', r: '#2a2440' }, table: { t: '#43405a', l: '#302d44', r: '#272538' },
+    chair: { t: '#2f3349', l: '#282b40', r: '#202336' }, chairb: { t: '#3d425f', l: '#363b56', r: '#2c3048' }, panel: { t: '#3d425f', l: '#33384f', r: '#2a2e42' }, edge: 'rgba(192,202,245,.10)',
+    shelf: { t: '#3a3550', l: '#2c2840', r: '#262236' }, counter: { t: '#45495f', l: '#33364a', r: '#2a2c3d' }, pot: { t: '#3b2f2a', l: '#5a463b', r: '#4a3a31' }, leaf: ['#3f7a4c', '#4f9460'],
+    sofa: { t: '#3b4566', l: '#2e3652', r: '#262c44' }, sofaBack: { t: '#46517a', l: '#36406a', r: '#2e3659' }, rack: { t: '#262a3c', l: '#191b27', r: '#14151f' },
+    book: { t: '#6a5a86', l: '#4b3f66', r: '#3a3052', back: '#2e2742', board: '#5b4d79' }, cab: { t: '#8d98c4', l: '#6f7ba6', r: '#566086', front: '#7e89b4' }, plants: 0,
+    note: 'rgba(224,175,104,.75)', sleepBg: 'rgba(26,27,38,.6)', sleepInk: '#565f89' },   // 畫在地板上的字、休息中的名牌：淺色風格要換深一點才看得到
+  wood: { name: { en: 'Warm wood', zh: '暖木' },
+    bg: ['#24211f', '#141312'], slab: { l: '#2e231b', r: '#251c16', t: '#4b382b' }, lobbyTop: '#513d2e', peerTop: '#4a372a',
+    bridge: { l: '#2a2019', r: '#221a14', t: '#45342a' }, floor: 'planks', seam: 'rgba(22,13,7,.42)', guide: 'rgba(255,228,196,.12)', zoneMix: .1,
+    wall: { lobby: { l: '#3a3634', r: '#312e2c', t: '#4a4542' }, zone: { l: '#383432', r: '#2f2c2a', t: '#48433f' }, peer: { l: '#36332f', r: '#2d2a27', t: '#46423d' } },
+    wallEdge: 'rgba(255,240,220,.08)', base: 'rgba(0,0,0,.24)', sky: 'time', frame: '#5d5853', mullion: '#5d5853',
+    rug: ['#3a2b47', 'rgba(160,118,200,.6)', 'rgba(160,118,200,.28)'],
+    desk: { t: '#5a514b', l: '#463f3a', r: '#3b3530' }, bigdesk: { t: '#62503f', l: '#4c3d30', r: '#403327' }, table: { t: '#62503f', l: '#4c3d30', r: '#403327' },
+    chair: { t: '#3b3b3d', l: '#2f2f31', r: '#28282a' }, chairb: { t: '#48484b', l: '#3e3e41', r: '#343437' }, panel: { t: '#55504b', l: '#46413d', r: '#3a3632' }, edge: 'rgba(255,240,220,.08)',
+    shelf: { t: '#6b4a33', l: '#573c29', r: '#4a3222' }, counter: { t: '#5a514b', l: '#463f3a', r: '#3b3530' }, pot: { t: '#4a3a30', l: '#5e4a3d', r: '#4d3d32' }, leaf: ['#3f7d49', '#58a062'],
+    sofa: { t: '#4a6a62', l: '#3d5953', r: '#344c47' }, sofaBack: { t: '#56786f', l: '#466760', r: '#3c5852' }, rack: { t: '#2c2a28', l: '#211f1e', r: '#1b1a19' },
+    book: { t: '#7a5538', l: '#5e412b', r: '#4d3523', back: '#3a281b', board: '#6b4a33' }, cab: { t: '#7d8380', l: '#656b68', r: '#535856', front: '#6f7572' } },
+  nordic: { name: { en: 'Nordic light', zh: '北歐淺色' },
+    bg: ['#efe9e1', '#d6cec2'], slab: { l: '#bba98c', r: '#ab997d', t: '#dcc7a6' }, lobbyTop: '#e0cba9', peerTop: '#d8c3a1',
+    bridge: { l: '#b8a78a', r: '#a8977b', t: '#d4bf9d' }, floor: 'planks', seam: 'rgba(120,88,48,.2)', guide: 'rgba(90,70,40,.25)', zoneMix: .12,
+    wall: { lobby: { l: '#f1ece4', r: '#e2dcd2', t: '#faf7f1' }, zone: { l: '#eee8df', r: '#dfd9ce', t: '#f8f4ee' }, peer: { l: '#ebe6de', r: '#dcd6cc', t: '#f6f2ec' } },
+    wallEdge: 'rgba(80,60,40,.16)', base: 'rgba(90,70,40,.12)', sky: 'time', frame: '#cbc3b6', mullion: '#cbc3b6',
+    rug: ['#c3cfbb', 'rgba(104,132,96,.6)', 'rgba(104,132,96,.28)'],
+    desk: { t: '#f6f3ee', l: '#dad4ca', r: '#cbc4b8' }, bigdesk: { t: '#d6bb93', l: '#bda27b', r: '#aa906a' }, table: { t: '#d6bb93', l: '#bda27b', r: '#aa906a' },
+    chair: { t: '#8f8a83', l: '#807b74', r: '#736e67' }, chairb: { t: '#a19c95', l: '#928d86', r: '#85807a' }, panel: { t: '#e9e4dc', l: '#d4cec4', r: '#c6bfb4' }, edge: 'rgba(80,60,40,.16)',
+    shelf: { t: '#d6bb93', l: '#bda27b', r: '#aa906a' }, counter: { t: '#f2eee8', l: '#d8d2c8', r: '#c9c2b6' }, pot: { t: '#c98563', l: '#b8714f', r: '#a46344' }, leaf: ['#5c9a60', '#79b77b'],
+    sofa: { t: '#b9b3a9', l: '#a6a096', r: '#968f86' }, sofaBack: { t: '#c6c0b6', l: '#b3ada3', r: '#a39d93' }, rack: { t: '#d3cdc3', l: '#bfb9af', r: '#b0aaa0' },
+    book: { t: '#d6bb93', l: '#bda27b', r: '#aa906a', back: '#8f7656', board: '#c4a882' }, cab: { t: '#eeeae4', l: '#d6d0c7', r: '#c6c0b6', front: '#e2ddd5' },
+    note: '#8a6418', sleepBg: 'rgba(26,27,38,.82)', sleepInk: '#9aa0bd' },
+  loft: { name: { en: 'Industrial loft', zh: '工業風' },
+    bg: ['#242424', '#141414'], slab: { l: '#3a3b3d', r: '#313234', t: '#646567' }, lobbyTop: '#6a6b6d', peerTop: '#606163',
+    bridge: { l: '#363739', r: '#2e2f31', t: '#5c5d5f' }, floor: 'tiles', seam: 'rgba(0,0,0,.18)', guide: 'rgba(255,196,120,.22)', zoneMix: .1,
+    wall: { lobby: { l: '#7a4334', r: '#68392c', t: '#8b4f40' }, zone: { l: '#764032', r: '#64372a', t: '#874c3d' }, peer: { l: '#723e31', r: '#613529', t: '#83493b' } },
+    wallEdge: 'rgba(0,0,0,.28)', base: 'rgba(0,0,0,.28)', brick: 'rgba(40,18,12,.32)', sky: 'time', frame: '#1e1e20', mullion: '#1e1e20',
+    rug: ['#4a382c', 'rgba(222,150,82,.5)', 'rgba(222,150,82,.22)'],
+    desk: { t: '#9b7651', l: '#2c2c2e', r: '#242426' }, bigdesk: { t: '#86613f', l: '#2a2a2c', r: '#222224' }, table: { t: '#86613f', l: '#2a2a2c', r: '#222224' },
+    chair: { t: '#2a2a2c', l: '#222224', r: '#1c1c1e' }, chairb: { t: '#363638', l: '#2e2e30', r: '#28282a' }, panel: { t: '#3a3a3c', l: '#2f2f31', r: '#27272a' }, edge: 'rgba(255,255,255,.07)',
+    shelf: { t: '#3a3b3d', l: '#2e2f31', r: '#27282a' }, counter: { t: '#9b7651', l: '#2c2c2e', r: '#242426' }, pot: { t: '#7d7e80', l: '#6c6d6f', r: '#5d5e60' }, leaf: ['#3f7d49', '#58a062'],
+    sofa: { t: '#6b4430', l: '#583726', r: '#4a2e20' }, sofaBack: { t: '#7a4f39', l: '#65412e', r: '#553626' }, rack: { t: '#2a2a2c', l: '#1f1f21', r: '#19191b' },
+    book: { t: '#3a3b3d', l: '#2e2f31', r: '#27282a', back: '#1c1c1e', board: '#45464a' }, cab: { t: '#6e7377', l: '#5a5f63', r: '#4b4f53', front: '#666b6f' } },
+  green: { name: { en: 'Greenhouse', zh: '綠意' },
+    bg: ['#1f2a22', '#111813'], slab: { l: '#2c3630', r: '#252e28', t: '#46524a' }, lobbyTop: '#4a574e', peerTop: '#435047',
+    bridge: { l: '#29332d', r: '#222b25', t: '#414d45' }, floor: 'tiles', seam: 'rgba(0,0,0,.14)', guide: 'rgba(220,240,210,.16)', zoneMix: .1,
+    wall: { lobby: { l: '#5b7a64', r: '#506d59', t: '#6c8b75' }, zone: { l: '#58765f', r: '#4d6a55', t: '#698770' }, peer: { l: '#55725c', r: '#4a6652', t: '#66836d' } },
+    wallEdge: 'rgba(230,245,225,.12)', base: 'rgba(0,0,0,.2)', sky: 'time', frame: '#e6ede4', mullion: '#e6ede4',
+    rug: ['#3c5a3f', 'rgba(170,210,140,.5)', 'rgba(170,210,140,.22)'],
+    desk: { t: '#b38e64', l: '#95734f', r: '#806244' }, bigdesk: { t: '#a07c55', l: '#856545', r: '#72563a' }, table: { t: '#a07c55', l: '#856545', r: '#72563a' },
+    chair: { t: '#e2ded3', l: '#ccc7bb', r: '#bcb7ab' }, chairb: { t: '#ece8de', l: '#d7d2c6', r: '#c8c3b7' }, panel: { t: '#b38e64', l: '#95734f', r: '#806244' }, edge: 'rgba(255,250,235,.1)',
+    shelf: { t: '#8a6a48', l: '#73583b', r: '#634b32' }, counter: { t: '#b38e64', l: '#95734f', r: '#806244' }, pot: { t: '#b9714e', l: '#a5603f', r: '#925436' }, leaf: ['#4f9a58', '#6fbf6d'],
+    sofa: { t: '#c9b79a', l: '#b5a385', r: '#a39276' }, sofaBack: { t: '#d6c5a8', l: '#c2b193', r: '#b09f82' }, rack: { t: '#33403a', l: '#28332d', r: '#222b26' },
+    book: { t: '#8a6a48', l: '#73583b', r: '#634b32', back: '#4a3826', board: '#7c5e40' }, cab: { t: '#d9d5ca', l: '#c3beb2', r: '#b2ada1', front: '#cfcabe' }, plants: 1 },
+};
+const SKY = { day: { top: '#8ec3ea', low: '#c4e2f4', city: '#7690a8', lit: '#ffe08a' }, dusk: { top: '#7b6aa8', low: '#eba077', city: '#4b4668', lit: '#ffd27a' },
+  night: { top: '#162040', low: '#202a4b', city: '#0d1326', lit: '#e0af68' } };
+let STY = THEMES.night, SKY_AT = null;   // SKY_AT：固定幾點（測試、截圖用）；null＝看的人當地時間
+function themeOf(id) { const b = THEMES.night, t = THEMES[id] || b, o = { id: THEMES[id] ? id : 'night' }; for (const k in b) o[k] = k in t ? t[k] : b[k]; return o; }
+function applyTheme(id) {
+  STY = themeOf(id);
+  for (const k of ['lobby', 'zone', 'peer']) Object.assign(WALL[k], STY.wall[k]);
+  Object.assign(DESK, STY.desk); Object.assign(BIGDESK, STY.bigdesk); Object.assign(TABLE, STY.table); Object.assign(CHAIR, STY.chair); Object.assign(CHAIRB, STY.chairb); Object.assign(PANEL, STY.panel);
+  EDGE = STY.edge;
+  if (typeof kick === 'function') kick();
+  return STY.id;
+}
+function skyPhase() { const n = new Date(), h = SKY_AT != null ? SKY_AT : n.getHours() + n.getMinutes() / 60; return h >= 7 && h < 17 ? 'day' : (h >= 17 && h < 19) || (h >= 5 && h < 7) ? 'dusk' : 'night'; }
+function mixHex(a, b, k) { const A = hexRgb(a), B = hexRgb(b); return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * k)).join(',')})`; }
+const zoneFloor = col => STY.zoneMix ? mixHex(STY.slab.t, col, STY.zoneMix) : shade(col, STY.zoneShade);
+function floorLines(x, x0, y0, w, h, col) {   // 地板的接縫：格線（grid／tiles）或木地板（planks：一條條木板，接縫錯開）
+  if (STY.floor !== 'planks') return gridLines(x, x0, y0, Math.round(w), Math.round(h), col);
+  const bw = .42, seed = Math.round(x0 * 5 + y0 * 3); x.beginPath();
+  for (let j = 0, v = 0; v < h - .02; j++, v += bw) {
+    if (v > 0) { const a = P(x0, y0 + v), b = P(x0 + w, y0 + v); x.moveTo(a.x, a.y); x.lineTo(b.x, b.y); }
+    for (let u = .4 + hash2(j, seed) * 1.8; u < w - .1; u += 2.2) { const a = P(x0 + u, y0 + v), b = P(x0 + u, y0 + Math.min(h, v + bw)); x.moveTo(a.x, a.y); x.lineTo(b.x, b.y); }
+  }
+  x.strokeStyle = col; x.lineWidth = 1; x.stroke();
+}
+function skyWindow(x, x0, y0, x1, y1, H, u1, u2, sky, i) {   // 窗外：白天藍天、黃昏、夜晚，加上遠處的城市
+  const z0 = H * .36, z1 = H * .82, S = SKY[sky], q = (a, b, c, d) => wq(x0, y0, x1, y1, lerp(u1, u2, a), lerp(u1, u2, b), lerp(z0, z1, c), lerp(z0, z1, d));
+  const at = (u, v) => P(lerp(x0, x1, lerp(u1, u2, u)), lerp(y0, y1, lerp(u1, u2, u)), lerp(z0, z1, v)), k = hash2(i + Math.round(x0 * 3), Math.round(y0 * 7) + 11);
+  poly(x, q(0, 1, 0, 1), S.top); poly(x, q(0, 1, 0, .4), S.low);
+  if (sky === 'day') { if (k > .5) { const m = at(.72, .74); ellipse(x, m.x, m.y, 3.4, 3.4, '#ffd76a'); } else { const m = at(.35, .78); ellipse(x, m.x, m.y, 5, 2.2, 'rgba(255,255,255,.85)'); ellipse(x, m.x + 4, m.y - 1, 3.4, 2, 'rgba(255,255,255,.85)'); } }
+  else if (sky === 'night') { for (let s = 0; s < 3; s++) { const m = at(.15 + hash2(i, s) * .7, .62 + hash2(s, i) * .32); ellipse(x, m.x, m.y, .9, .9, 'rgba(230,233,245,.75)'); } if (k > .72) { const m = at(.74, .8); ellipse(x, m.x, m.y, 2.6, 2.6, '#e8e4cf'); } }
+  [[.04, .2, .3 + .2 * k], [.22, .38, .5], [.4, .55, .22 + .15 * k], [.58, .78, .42], [.8, .96, .28]].forEach(([a, b, h], j) => {
+    poly(x, q(a, b, 0, h), S.city); if (sky !== 'day' && hash2(i * 3 + j, 5) > .45) poly(x, q(a + .04, a + .08, h * .45, h * .58), S.lit); });
+  poly(x, q(0, 1, 0, 1), null, STY.frame, 1.6);
+  if (STY.mullion) { poly(x, q(.485, .515, 0, 1), STY.mullion); poly(x, q(0, 1, .49, .52), STY.mullion); }
+}
 const deskH = g => g.big ? 22 : 20;
 const isPeerMain = e => !!e && e.kind === 'peer' && !e.gone && (M.peers.get(e.peerId) || {}).primaryKey === e.key;   // 隔壁電腦的主要 bot
 const pScale = e => lerp(.9, 1, V.m) * (e && e.kind === 'helper' ? .8 : (e && e.kind === 'bot' && e.who.primary) || isPeerMain(e) ? 1.3 : 1.12);
@@ -1442,25 +1543,25 @@ function drawHelper(x, e, far) {
 }
 function drawDecor(x, d) {
   if (d.kind === 'shelf') {
-    box(x, d.x, d.y, d.w, d.h, 0, 48, { t: '#3a3550', l: '#2c2840', r: '#262236' }, EDGE);
+    box(x, d.x, d.y, d.w, d.h, 0, 48, STY.shelf, EDGE);
     const bc = [COL.blue, COL.red, COL.yellow, COL.green, COL.purple, COL.cyan];
     for (let row = 0; row < 3; row++) for (let i = 0; i < 6; i++) { if (hash2(i, row) < .25) continue; const u = .06 + i * .15, z = 6 + row * 14; poly(x, wq(d.x + d.w, d.y, d.x + d.w, d.y + d.h, u, u + .1, z, z + 9 + hash2(row, i) * 3), alpha(bc[(i + row * 2) % 6], .55)); }
   } else if (d.kind === 'counter') {
-    box(x, d.x, d.y, d.w, d.h, 0, 20, { t: '#45495f', l: '#33364a', r: '#2a2c3d' }, EDGE);
+    box(x, d.x, d.y, d.w, d.h, 0, 20, STY.counter, EDGE);
     box(x, d.x + .15, d.y + .12, .5, .42, 20, 20, { t: '#2a2c3a', l: '#1c1d27', r: '#16171f' }, EDGE);
     const lp = P(d.x + .4, d.y + .54, 33); ellipse(x, lp.x, lp.y, 1.6, 1.6, alpha(COL.red, .8 + .2 * Math.sin(T * 2)));
     for (let i = 0; i < 2; i++) { const p = P(d.x + 1.0 + i * .22, d.y + .38, 20); x.fillStyle = i ? '#9aa5ce' : '#c0caf5'; x.beginPath(); x.roundRect(p.x - 2.2, p.y - 5.5, 4.4, 5.5, 1); x.fill(); }
   } else if (d.kind === 'plant') {
-    const s = d.s || 1; box(x, d.x + .1, d.y + .1, d.w - .2, d.h - .2, 0, 11 * s, { t: '#3b2f2a', l: '#5a463b', r: '#4a3a31' }, EDGE);
+    const s = d.s || 1; box(x, d.x + .1, d.y + .1, d.w - .2, d.h - .2, 0, 11 * s, STY.pot, EDGE);
     const p = P(d.x + d.w / 2, d.y + d.h / 2, 11 * s), sway = RM ? 0 : Math.sin(T * .8 + d.x) * .8;
-    [[-6, -6, 7], [6, -7, 7], [0, -14, 8], [-3, -20, 6], [4, -19, 6]].forEach(([ox, oy, r], i) => ellipse(x, p.x + ox * s + sway * (i > 2 ? 1 : .4), p.y + oy * s, r * s, r * s * .85, i % 2 ? '#3f7a4c' : '#4f9460'));
+    [[-6, -6, 7], [6, -7, 7], [0, -14, 8], [-3, -20, 6], [4, -19, 6]].forEach(([ox, oy, r], i) => ellipse(x, p.x + ox * s + sway * (i > 2 ? 1 : .4), p.y + oy * s, r * s, r * s * .85, STY.leaf[i % 2 ? 0 : 1]));
     ellipse(x, p.x - 3 * s, p.y - 17 * s, 3 * s, 2.2 * s, 'rgba(255,255,255,.12)');
   } else if (d.kind === 'sofa') {
-    box(x, d.x, d.y, d.w, d.h, 0, 9, { t: '#3b4566', l: '#2e3652', r: '#262c44' }, EDGE);
-    box(x, d.x, d.y, .2, d.h, 9, 12, { t: '#46517a', l: '#36406a', r: '#2e3659' }, EDGE);
-    box(x, d.x + .2, d.y, d.w - .2, .16, 9, 7, { t: '#46517a', l: '#36406a', r: '#2e3659' });
+    box(x, d.x, d.y, d.w, d.h, 0, 9, STY.sofa, EDGE);
+    box(x, d.x, d.y, .2, d.h, 9, 12, STY.sofaBack, EDGE);
+    box(x, d.x + .2, d.y, d.w - .2, .16, 9, 7, STY.sofaBack);
   } else if (d.kind === 'rack') {
-    box(x, d.x, d.y, d.w, d.h, 0, 50, { t: '#262a3c', l: '#191b27', r: '#14151f' }, EDGE);
+    box(x, d.x, d.y, d.w, d.h, 0, 50, STY.rack, EDGE);
     for (let i = 0; i < 5; i++) { const z = 8 + i * 8.5, on = RM ? 1 : (Math.sin(T * (2 + i * .7) + i) > -.2); poly(x, wq(d.x, d.y + d.h, d.x + d.w, d.y + d.h, .15, .85, z, z + 4.5), '#0f1018'); const lp = P(d.x + .12 + (i % 2) * .08, d.y + d.h, z + 2.2); ellipse(x, lp.x, lp.y, 1.2, 1.2, on ? COL.teal : '#2a3b3a'); }
   }
 }
@@ -1469,7 +1570,7 @@ function drawDecor(x, d) {
 const LOBBY_SHELF = { x: .2, y: .6, w: .5, h: 1.7, kind: 'shelf' };
 function decorOf(r) {
   if (r.kind === 'lobby') return [LOBBY_SHELF, { x: 5.6, y: .3, w: 1.5, h: .7, kind: 'counter' }, { x: 13.25, y: .35, w: .6, h: .6, kind: 'plant', s: 1.15 }, { x: .35, y: 3.3, w: .6, h: .6, kind: 'plant', s: 1 }, { x: 1.4, y: 2.3, w: 1.7, h: .75, kind: 'sofa' }, { x: 13.2, y: M.LH - .95, w: .6, h: .6, kind: 'plant', s: 1.2 }];
-  if (r.kind === 'zone') return [{ x: r.x + r.w - .72, y: r.y + .3, w: .55, h: .55, kind: 'plant', s: .9 }];
+  if (r.kind === 'zone') return [{ x: r.x + r.w - .72, y: r.y + .3, w: .55, h: .55, kind: 'plant', s: .9 }, ...(STY.plants ? [{ x: r.x + .15, y: r.y + .3, w: .5, h: .5, kind: 'plant', s: .8 }] : [])];
   if (r.kind === 'peer') return [{ x: r.x + r.w - .75, y: r.y + .5, w: .55, h: 1.2, kind: 'rack' }];
   return [];
 }
@@ -3028,7 +3129,7 @@ function draw() {
   const t0 = performance.now(), far = lod(); itemsDrawn = 0; PILES.clear();
   c.setTransform(DPR, 0, 0, DPR, 0, 0);
   const bg = c.createRadialGradient(W / 2, H * .5, 40, W / 2, H * .55, Math.max(W, H) * .8);
-  bg.addColorStop(0, '#222539'); bg.addColorStop(1, '#15161f'); c.fillStyle = bg; c.fillRect(0, 0, W, H);
+  bg.addColorStop(0, STY.bg[0]); bg.addColorStop(1, STY.bg[1]); c.fillStyle = bg; c.fillRect(0, 0, W, H);
   c.save(); c.translate(W / 2 - cam.x * cam.z, H / 2 - cam.y * cam.z); c.scale(cam.z, cam.z);
   drawPlaza(c, far);
   // 房間依深度排序；走廊上的人插在中間
@@ -3045,7 +3146,7 @@ function draw() {
     c.globalAlpha = r.alpha; drawRoomShell(c, r, far); c.globalAlpha = 1;
     if (!far) for (const d of decorOf(r)) L.room.items.push([P(d.x + d.w, d.y + d.h).y, () => drawDecor(c, d)]);
     if (!far && r.kind === 'lobby') L.room.items.push([P(LOBBY_SHELF.x + LOBBY_SHELF.w, LOBBY_SHELF.y + LOBBY_SHELF.h).y + .01,   // the objects that are the room's own pieces: their number and outline, over the piece
-      () => OBJ.draw(c, { P, poly, box, ellipse, wq, COL, FONT, hover: hoverObj, given: true })]);
+      () => OBJ.draw(c, { P, poly, box, ellipse, wq, COL, FONT, TH: STY, hover: hoverObj, given: true })]);
     L.room.items.sort((a, b) => a[0] - b[0]); for (const it of L.room.items) it[1]();
   }
   for (const r of rings) { const k = r.t / r.max, p = P(r.x, r.y), e = floorR(.3 + .9 * easeOut(k)); ellipse(c, p.x, p.y, e.rx, e.ry, null, alpha(r.color, (1 - k) * .9), 2.2); }
@@ -3159,7 +3260,7 @@ function drawOverlay(far) {
   SIGNS = signLayout(); SIGN_LOG = []; PILL_LOG.length = 0; FADE = hov;
   for (const r of M.rooms.values()) { const g = SIGNS.get(r.id); if (g) roomSign(r, g, placed, hov); }   // 整理位置時，隔壁的標籤換成把手（signLayout 略過）
   if (M.rooms.get('lobby') && !far) { const iso = V.m >= .5, p = iso ? t2s(1.6 + Math.min(TMAX, M.nT) * .6, M.LH - .15, 0) : V.tp ? t2s(1.35, 4.8 + Math.min(TMAX, M.nT) * .3, 0) : t2s(1.6 + Math.min(TMAX, M.nT) * .6, 4.55, 0);
-    c.font = `600 ${Math.round(11 * bs)}px ${FONT}`; c.fillStyle = alpha(COL.yellow, .75); c.textAlign = 'center'; c.textBaseline = iso ? 'top' : 'bottom'; c.fillText('實習生區 · 不是 bot 的 AI 分頁', p.x, p.y + (iso ? 5 : -4) * bs); }
+    c.font = `600 ${Math.round(11 * bs)}px ${FONT}`; c.fillStyle = STY.note; c.textAlign = 'center'; c.textBaseline = iso ? 'top' : 'bottom'; c.fillText('實習生區 · 不是 bot 的 AI 分頁', p.x, p.y + (iso ? 5 : -4) * bs); }
   const list = []; for (const e of M.ents.values()) { if ((e.gone && !showAll) || (e.walk && e.walk.t < 0) || e.hidden) continue; const h = headTop(e); if (!h || h.x < -80 || h.x > W + 80 || h.y < -80 || h.y > H + 80) continue; list.push({ e, h }); }
   list.sort((a, b) => a.h.base.y - b.h.base.y);
   const tags = [];
@@ -3170,7 +3271,7 @@ function drawOverlay(far) {
     if ((showAll && !(temp && cam.z < 1.25)) || on || (prim && cam.z >= .45 && !far) || (helper && e.st === 'stuck' && !far && !walking)) {
       const ly = h.base.y + 15 * bs;
       pill(h.base.x, ly, e.who.name + (e.gone ? '（已離開・位子留到 ' + new Date((e.goneAt || Date.now()) + SEAT_HOLD_MS).toTimeString().slice(0, 5) + '）' : ''), { avoid: placed, dir: 1, suffix: prim ? '主要' : '', sfont: `700 ${Math.round(nfs * .87)}px ${FONT}`, scolor: COL.yellow, clock: !!e.stale && !e.gone, font: `${prim ? 700 : 600} ${Math.round(nfs)}px ${FONT}`, h: Math.round(nfs * 1.75),
-        color: asleep ? COL.mute : prim ? '#e9dcff' : COL.ink, bg: asleep ? 'rgba(26,27,38,.6)' : 'rgba(26,27,38,.86)', border: prim ? alpha(COL.purple, .6) : follow === e.key ? alpha(COL.blue, .8) : 'rgba(59,66,97,.9)',
+        color: asleep ? STY.sleepInk : prim ? '#e9dcff' : COL.ink, bg: asleep ? STY.sleepBg : 'rgba(26,27,38,.86)', border: prim ? alpha(COL.purple, .6) : follow === e.key ? alpha(COL.blue, .8) : 'rgba(59,66,97,.9)',
         icon: temp ? null : (ix, iy) => { if (asleep) { c.fillStyle = COL.mute; c.beginPath(); c.arc(ix, iy, 4.2 * bs, .6, 5.7); c.arc(ix + 2 * bs, iy - 1 * bs, 3.4 * bs, 5.4, .9, true); c.fill(); } else miniAvatar(e.who, ix, iy, 4.6 * bs); } });
     }
     if (e.gone || asleep || walking || e.vis < .5) continue;
@@ -3849,7 +3950,7 @@ window.__office = {
     for (const f of fp) if (!f.given) floor.push(f);
     const wall = Object.entries(WALL_OBJ).map(([id, o]) => ({ id, x0: o.q[0], x1: o.q[2], z0: o.q[6], z1: o.q[7] }));
     return { w: r.w, h: r.h, floor, fixtures, wall, rug: { x0: 8.9, x1: 12.6, y0: .5, y1: 4.25 } }; },
-  pause: on => { DEMO.paused = !!on; kick(); }, follow: key => startFollow(key), unfollow: () => stopFollow(), setMode: (m, i) => setMode(m, i), setArea: (id, i) => setArea(id, i),
+  pause: on => { DEMO.paused = !!on; kick(); }, setTheme: id => applyTheme(id), theme: () => STY.id, themes: () => Object.keys(THEMES), skyAt: h => { SKY_AT = h; kick(); }, follow: key => startFollow(key), unfollow: () => stopFollow(), setMode: (m, i) => setMode(m, i), setArea: (id, i) => setArea(id, i),
   forceIdle: () => { lastInput = performance.now() - IDLE_AFTER - 1; goal = null; }, isActive: () => active(), busy: () => busy(), cam: () => ({ ...cam }), lod: () => lodFar ? 'far' : 'near',
   addBots: n => addBots(n), setTemps: n => { while (DB.temps.length < n) { const k = sim.tempN++; DB.temps.push({ id: 'tmp' + k, name: '臨時 #' + k, cli: '示範 CLI-' + 'ABC'[k % 3], state: 'working', opened_at: iso(clockMs() + k), task: { id: '—', title: TEMP_TASKS[k % 5], status: 'doing', next: '做完就關分頁' }, events: [], _lock: 1e9 }); } while (DB.temps.length > n) DB.temps.pop(); push(); },
   assignments: () => Object.fromEntries([...M.ents.values()].filter(e => e.kind === 'bot').map(e => [e.id, e.seatKey + (e.gone ? ' (已離開)' : '')])),

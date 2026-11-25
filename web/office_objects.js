@@ -113,11 +113,12 @@
         if (p.given) {
           // the room draws this piece itself: only its badge and its outline here
         } else if (o.furniture === 'bookshelf') {
-          g.box(x, p.x0, 0, w, k.d, 0, k.h, { t: '#6a5a86', l: '#4b3f66', r: '#3a3052' }, 'rgba(192,202,245,.14)');
-          g.poly(x, front(.06, .94, 3, k.h - 4), '#2e2742');
+          const bk = (g.TH && g.TH.book) || { t: '#6a5a86', l: '#4b3f66', r: '#3a3052', back: '#2e2742', board: '#5b4d79' };   // the office's theme (office.html THEMES)
+          g.box(x, p.x0, 0, w, k.d, 0, k.h, bk, 'rgba(192,202,245,.14)');
+          g.poly(x, front(.06, .94, 3, k.h - 4), bk.back);
           for (let r = 0; r < 3; r++) {
             const z1 = 5 + r * 17.5;
-            g.poly(x, front(.06, .94, z1 + 14.4, z1 + 15.6), '#5b4d79');
+            g.poly(x, front(.06, .94, z1 + 14.4, z1 + 15.6), bk.board);
             for (let i = 0, u = .1; i < 7 && u < .86; i++) {
               const bw = .075 + ((i * 7 + r * 3) % 4) * .012, bh = 9 + ((i * 5 + r * 2) % 5) * 1.1;
               g.poly(x, front(u, u + bw, z1, z1 + bh), BOOKS[(i + r * 2) % BOOKS.length]);
@@ -125,10 +126,11 @@
             }
           }
         } else if (o.furniture === 'cabinet') {
-          g.box(x, p.x0, 0, w, k.d, 0, k.h, { t: '#8d98c4', l: '#6f7ba6', r: '#566086' }, 'rgba(255,255,255,.2)');
+          const cb = (g.TH && g.TH.cab) || { t: '#8d98c4', l: '#6f7ba6', r: '#566086', front: '#7e89b4' };
+          g.box(x, p.x0, 0, w, k.d, 0, k.h, cb, 'rgba(255,255,255,.2)');
           for (let r = 0; r < 3; r++) {
             const z1 = 3 + r * 13.6;
-            g.poly(x, front(.08, .92, z1, z1 + 11.6), '#7e89b4', 'rgba(255,255,255,.18)', 1);
+            g.poly(x, front(.08, .92, z1, z1 + 11.6), cb.front, 'rgba(255,255,255,.18)', 1);
             g.poly(x, front(.36, .64, z1 + 6.4, z1 + 8), '#dfe5ff');
             g.poly(x, front(.2, .5, z1 + 2, z1 + 4), 'rgba(20,24,40,.35)');
           }
