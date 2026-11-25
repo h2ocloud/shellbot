@@ -91,10 +91,10 @@
     /* ── the floor: the yard around the building and a walkway to every room ── */
     function floor(x, far, stage) {
       const A = arr(); if (!A) return;
-      const pr = [...A.at.values()], west = pr.some(q => q.c < 0), north = pr.some(q => q.r < 0), east = pr.some(q => q.c >= A.bc), south = pr.some(q => q.r >= A.br), G = A.G;
+      const WALK = (env.sty && env.sty().bridge) || { l: '#171925', r: '#12131b', t: '#1c1f2e' }, pr = [...A.at.values()], west = pr.some(q => q.c < 0), north = pr.some(q => q.r < 0), east = pr.some(q => q.c >= A.bc), south = pr.some(q => q.r >= A.br), G = A.G;
       if (stage === 'yard') {
         const x0 = west ? -G : 0, y0 = north ? -G : 0, x1 = A.BX + (east ? G : 0), y1 = A.BY + (south ? G : 0);
-        env.box(x, x0, y0, x1 - x0, y1 - y0, -16, 12.8, { l: '#161824', r: '#11121a', t: '#1a1d2c' });
+        env.box(x, x0, y0, x1 - x0, y1 - y0, -16, 12.8, (env.sty && env.sty().yard) || { l: '#161824', r: '#11121a', t: '#1a1d2c' });   // the office style's (office.html THEMES); night blue is these
         return;
       }
       for (const r of env.rooms().values()) {
@@ -102,8 +102,8 @@
         const bx0 = r.x, bx1 = r.x + r.w, by0 = r.y, by1 = r.y + r.h; let ax, bx, ay, by;
         if (bx1 <= 0) { ax = bx1; bx = 0; } else if (bx0 >= A.BX) { ax = bx0; bx = A.BX; } else { ax = bx = (Math.max(bx0, 0) + Math.min(bx1, A.BX)) / 2; }
         if (by1 <= 0) { ay = by1; by = 0; } else if (by0 >= A.BY) { ay = by0; by = A.BY; } else { ay = by = (Math.max(by0, 0) + Math.min(by1, A.BY)) / 2; }
-        if (ax === bx && ay !== by) env.box(x, ax - .55, Math.min(ay, by), 1.1, Math.abs(by - ay), -9.6, 9.6, { l: '#171925', r: '#12131b', t: '#1c1f2e' });
-        else if (ay === by && ax !== bx) env.box(x, Math.min(ax, bx), ay - .55, Math.abs(bx - ax), 1.1, -9.6, 9.6, { l: '#171925', r: '#12131b', t: '#1c1f2e' });
+        if (ax === bx && ay !== by) env.box(x, ax - .55, Math.min(ay, by), 1.1, Math.abs(by - ay), -9.6, 9.6, WALK);
+        else if (ay === by && ax !== bx) env.box(x, Math.min(ax, bx), ay - .55, Math.abs(bx - ax), 1.1, -9.6, 9.6, WALK);
         const a = env.P(ax, ay, 1), b = env.P(bx, by, 1);
         x.setLineDash([5, 7]); x.lineDashOffset = env.RM ? 0 : -env.time() * 14; x.strokeStyle = env.alpha(env.COL.teal, .65); x.lineWidth = 2; x.beginPath(); x.moveTo(a.x, a.y); x.lineTo(b.x, b.y); x.stroke(); x.setLineDash([]); x.lineDashOffset = 0;
         env.ellipse(x, a.x, a.y, 3.2, 1.8, env.alpha(env.COL.teal, .85));

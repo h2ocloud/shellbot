@@ -30,6 +30,7 @@
  *   every 3 s     office_tabs, link_peer_bots (+ bots_state at the start and every 30 s)
  *   every 9 s     tasks_overview, link_peer_tasks
  *   every 30 s    office_objects
+ *   foreground    office_prefs (SFOfficeApp.active(true): a new office style from the desktop is handed to the page)
  *   on demand     office_sky (host.sky(): the desktop's place and weather for the themes' windows; only when the page calls
  *                 it, never from the rounds above; answered from the last good answer for 10 min, a failed ask is retried
  *                 after 1 min), task_detail, schedules_list, office_object_list, office_object_item, office_ops_view;
@@ -366,6 +367,20 @@
     }
     function stop() { running = false; clearT(timer); timer = 0; }
 
+    // Back in the foreground: the desktop's office style may have changed (Settings → Office) while the page was kept. The app
+    // injects office_prefs only when it opens the office, so this asks it again and hands a new `theme` to the page; the
+    // other shared keys stay as injected (they change with the next opening, as before).
+    let styleNow = null;
+    function restyle() {
+      return api('office_prefs').then(r => {
+        const p = r.ok && r.data && isObj(r.data.prefs) ? r.data.prefs : null;
+        if (!p) return;
+        const th = typeof p.theme === 'string' ? p.theme : 'night', was = styleNow == null ? (isObj(prefsNow()) && typeof prefsNow().theme === 'string' ? prefsNow().theme : 'night') : styleNow;
+        styleNow = th;
+        if (th !== was && win.Office && typeof win.Office.setTheme === 'function') { try { win.Office.setTheme(th); } catch (_) { /* an older page */ } }
+      });
+    }
+
     // the app's side: background / foreground
     function active(on) {
       const go = on !== false;
@@ -380,6 +395,7 @@
       if (running) return;
       running = true;
       if (wasLive) { liveId = wasLive; api('office_ops_live', [true]); wasLive = ''; }
+      restyle();
       tick().then(() => { if (running && !timer) again(Math.min(TICK_MS * Math.pow(2, failures), BACKOFF_MAX)); });
     }
 

@@ -247,6 +247,23 @@ function world(opts) {
     w.calls().includes('office_tabs') && w.live().length >= 1 && w.win.__sfInactive === false && w.sent.some(m => m.body && m.body.method === 'office_ops_live' && m.body.args[0] === true), w.calls());
   w.win.SFOfficeApp.active(false);
 
+  console.log('back in the foreground: the desktop\'s office style');
+  let deskPrefs = { seats: { main: 3 } };
+  const wst = world({ app: { prefs: { seats: { main: 3 }, theme: 'wood' } }, answers: { office_prefs: () => ({ success: true, prefs: deskPrefs }) } });
+  const themes = []; wst.win.Office.setTheme = id => themes.push(id);
+  wst.h.init(); await flush();
+  check('opening: office_prefs is not asked by the page (the app injected it)', !wst.calls().includes('office_prefs'), wst.calls());
+  wst.win.SFOfficeApp.active(false); await flush();
+  deskPrefs = { seats: { main: 3 }, theme: 'nordic' };
+  wst.win.SFOfficeApp.active(true); await flush();
+  check('active(true) asks office_prefs and hands a changed style to the page', wst.calls().includes('office_prefs') && JSON.stringify(themes) === '["nordic"]', { calls: wst.calls(), themes });
+  wst.win.SFOfficeApp.active(false); await flush(); wst.win.SFOfficeApp.active(true); await flush();
+  check('…the same style again is not handed twice', JSON.stringify(themes) === '["nordic"]', themes);
+  wst.win.SFOfficeApp.active(false); await flush(); deskPrefs = { seats: { main: 3 } }; wst.win.SFOfficeApp.active(true); await flush();
+  check('…no theme key on the desktop is night blue', JSON.stringify(themes) === '["nordic","night"]', themes);
+  check('…and the page\'s own prefs (seats) are never written', wst.h.sets.length === 0, wst.h.sets);
+  wst.win.SFOfficeApp.active(false);
+
   console.log('a failed round keeps the last snapshot; offline backs off');
   const wf = world({ bridge: m => (wf && wf.down ? { success: false, code: 'offline' } : undefined) });
   wf.h.init(); await flush();
