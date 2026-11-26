@@ -36,7 +36,8 @@
 
   配件庫（程式第 7.5 節的 ITEMS）
     每個人桌上、身上會依執掌自動配 2～3 件配件（固定種子，同一個人每次都一樣）；實習生依 CLI
-    戴不同顏色的帽子，桌上只放一件小東西。追蹤面板的「配件」可以手動加、拿掉。遠景不畫配件。
+    戴不同顏色的帽子，桌上只放一件小東西。追蹤面板的「配件」可以手動加、拿掉：配件庫的格子依位置分組
+    （桌角、桌面前緣、桌旁地上、牆上看板、頭上、身上），每組有小標題。遠景不畫配件。
     怎麼加一個配件：
       1. 在 ITEMS 陣列最後加一筆：{ id, name: { zh, en }, slot, spot, tags, draw(x, s, a) { … } }
       2. slot 選位置：'desk'（再用 spot 選 'side' 桌角或 'front' 桌面前緣）、'floor' 桌旁地上、
@@ -44,7 +45,12 @@
       3. tags 寫中英文職能關鍵字，例如 ['工程', '程式', 'code']；自動配會拿去比對執掌、名字、團隊
       4. draw 用 box／poly／ellipse／wq／fquad 畫；s 是位置（格子座標，大小已對齊桌面），
          a 是主人的顏色與狀態（可以讓配件跟著狀態變，例如監控燈）
-      5. 存檔、重新整理就生效：自動配會考慮它，配件庫格子會多一格（縮圖用同一個 draw 畫）。
+      5. 存檔、重新整理就生效：自動配會考慮它，配件庫格子會多一格（縮圖用同一個 draw 畫），自動歸到它那個位置的小標題下。
+      6. 守則：桌上的畫在 s 這一格裡（桌角約 ±9px 寬、20px 高內；前緣、地上、看板照 s 的大小），桌子朝 'ny'、'nx'
+         都要好看（有正面的用 itFace(s, a, …) 立一塊朝著人的板子；小東西用 itC(s) 取中心）；立體圖、平面圖都要畫得出來。
+         不要畫會被當成狀態的東西：咖啡或冒煙的飲料（咖啡＝閒著）、時鐘／沙漏／計時器（＝卡住）、紅色驚嘆號或紅點、
+         黃色警告三角、煙、飛的紙、發亮的螢幕（亮＝在忙）；也不要寫真人、品牌、地名。用中性、安靜的顏色。
+         動畫要受 RM（減少動態效果）控制。tests_office_items_ui.py 會把每一件在兩種桌子、兩種視角畫一遍並量範圍。
 -->
 <html lang="zh-Hant">
 <head>
@@ -216,6 +222,8 @@ html.sty-light #legend .lfoot{border-top-color:#e2dacd}   /* ShellBot's close bu
 .igrid button{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px 5px;border-radius:10px;border:1px solid rgba(59,66,97,.85);background:rgba(26,27,38,.5);font-size:11px;color:var(--dim);position:relative}
 .igrid button img{width:48px;height:48px;border-radius:9px}
 .igrid button small{font-size:9.5px;color:var(--mute)}
+.igrid .ihead{grid-column:1/-1;margin:8px 2px 0;padding-bottom:3px;font-size:11px;letter-spacing:.04em;color:var(--mute);border-bottom:1px solid rgba(59,66,97,.6)}
+.igrid .ihead:first-child{margin-top:0}
 .igrid button.on{border-color:var(--green);color:var(--ink);background:rgba(158,206,106,.1)}
 .igrid button.on::after{content:"";position:absolute;top:5px;right:5px;width:7px;height:7px;border-radius:50%;background:var(--green)}
 .igrid button:hover{border-color:var(--blue)}
@@ -1671,10 +1679,14 @@ function decorOf(r) {
        s：desk／floor → { x, y, w, h, z }（格子座標，已對齊桌面；z＝桌面高度 px，地上是 0）
           wall → { x0, y0, x1, y1, z }（小看板正面的底線）；head／body → { r }（像素，原點在頭／身體中心）
        a：{ face:'ny'|'nx', col:主人的顏色, st:主人的狀態, lit:螢幕亮著, t:動畫時間 }
-   畫法以 box／poly／ellipse／wq／fquad 為主，細節（線、圓弧、漸層）可以直接用 canvas 指令；縮圖也用同一個 draw 畫。                       */
+   畫法以 box／poly／ellipse／wq／fquad 為主，細節（線、圓弧、漸層）可以直接用 canvas 指令；縮圖也用同一個 draw 畫。
+   小幫手：itC(s) 桌上／地上小東西的中心點；itFace(s, a, u1, u2, z1, z2) 立在桌上、朝著坐的人的板子（'ny'、'nx' 自動換向）；
+   qAt(q, u, v) 在一塊 wq／itFace 畫出的板子上找點（u 橫、v 由上往下）。不要畫成狀態標誌（咖啡、時鐘、紅點、警告三角、煙、飛紙、發亮螢幕）。                             */
 const PANEL = { t: '#3d425f', l: '#33384f', r: '#2a2e42' };
 const qAt = (q, u, v) => ({ x: lerp(lerp(q[0].x, q[1].x, u), lerp(q[3].x, q[2].x, u), v), y: lerp(lerp(q[0].y, q[1].y, u), lerp(q[3].y, q[2].y, u), v) });
 function codeLines(x, q, t) { const off = RM ? 0 : (t * .8) % 1; for (let i = 0; i < 4; i++) { const v = .2 + (i - off) * .2; if (v < .12 || v > .82) continue; const L = .3 + .5 * hash2(i + Math.floor(t * .8), 3); poly(x, [qAt(q, .12, v), qAt(q, .12 + L, v), qAt(q, .12 + L, v + .09), qAt(q, .12, v + .09)], alpha(i % 2 ? COL.cyan : COL.green, .85)); } }
+const itC = (s, z = s.z) => P(s.x + s.w / 2, s.y + s.h / 2, z);   // 小東西的中心點（畫面座標）
+const itFace = (s, a, u1, u2, z1, z2) => a.face === 'nx' ? wq(s.x + s.w / 2, s.y, s.x + s.w / 2, s.y + s.h, u1, u2, z1, z2) : wq(s.x, s.y + s.h / 2, s.x + s.w, s.y + s.h / 2, u1, u2, z1, z2);   // 立在桌上、正面朝著坐的人的一塊板子
 const ITEMS = [
   // ── 工程 ──
   { id: 'dualMonitor', name: { zh: '雙螢幕', en: 'Dual monitor' }, slot: 'desk', spot: 'side', tags: ['工程', '程式', '寫程式', 'code', 'dev', 'engineer', '前端', 'frontend', '切版', '測試', 'test', '建置', 'build'],
@@ -1742,9 +1754,84 @@ const ITEMS = [
       for (const sd of [-1, 1]) { x.fillStyle = shade(a.col, -.55); x.beginPath(); x.roundRect(sd * r * 1.02 - 2.3, -r * .38, 4.6, r * .72, 2); x.fill(); } } },
   { id: 'sticky', name: { zh: '便利貼', en: 'Sticky notes' }, slot: 'desk', spot: 'side', generic: true, temp: true, tempOnly: true, tags: ['待辦', '提醒', 'todo', 'note'],
     draw(x, s, a) { ['#e0af68', '#f7768e', '#9ece6a'].forEach((c, i) => poly(x, fquad(s.x + .03 + i * .06, s.y + .05 + i * .05, s.x + .2 + i * .06, s.y + .2 + i * .05, s.z + .4 + i * .4), c)); } },
+  // ── 擺設（桌角）──
+  { id: 'succulent', name: { zh: '多肉小盆栽', en: 'Succulent' }, slot: 'desk', spot: 'side', tags: ['植物', '綠', '療癒', '文書', '編輯', '寫作', 'plant', 'green', 'calm', 'write', 'edit'],
+    draw(x, s, a) { const p = itC(s); ellipse(x, p.x, p.y, 5.5, 2.4, 'rgba(0,0,0,.22)'); poly(x, [{ x: p.x - 4.2, y: p.y - 6 }, { x: p.x + 4.2, y: p.y - 6 }, { x: p.x + 3, y: p.y - .5 }, { x: p.x - 3, y: p.y - .5 }], '#a58a76'); ellipse(x, p.x, p.y - 6, 4.2, 1.5, '#7b6455');
+      [[-3.4, -9.2, 2.1, 3.2, '#58996a'], [3.4, -9.2, 2.1, 3.2, '#58996a'], [0, -10.6, 2.4, 4, '#6fae7d'], [-1.7, -8.4, 2, 2.6, '#7bbd8a'], [1.8, -8.2, 2, 2.6, '#7bbd8a']].forEach(([ox, oy, rx, ry, c]) => ellipse(x, p.x + ox, p.y + oy, rx, ry, c)); ellipse(x, p.x - .8, p.y - 11.8, 1, 1.4, 'rgba(255,255,255,.25)'); } },
+  { id: 'photoFrame', name: { zh: '風景相框', en: 'Photo frame' }, slot: 'desk', spot: 'side', tags: ['客服', '客戶', '行銷', '專案', '人資', '回覆', 'support', 'client', 'marketing', 'project', 'people'],
+    draw(x, s, a) { const z = s.z, F = (u1, u2, z1, z2) => itFace(s, a, u1, u2, z + z1, z + z2); poly(x, F(.06, .94, 0, 15), '#7d6b5d', 'rgba(0,0,0,.2)', 1);
+      const q = F(.17, .83, 2, 13); poly(x, q, '#9cc0dc'); poly(x, [qAt(q, 0, 1), qAt(q, .32, .32), qAt(q, .58, .68), qAt(q, .78, .46), qAt(q, 1, .9), qAt(q, 1, 1)], '#6a9f7c'); ellipse(x, qAt(q, .8, .24).x, qAt(q, .8, .24).y, 1.3, 1.3, '#efe6c8'); } },
+  { id: 'penCup', name: { zh: '筆筒', en: 'Pen cup' }, slot: 'desk', spot: 'side', tags: ['文書', '紀錄', '校對', '潤稿', '編輯', '設計', '草圖', 'write', 'edit', 'note', 'docs', 'sketch'],
+    draw(x, s, a) { const p = itC(s); ellipse(x, p.x, p.y, 5, 2.2, 'rgba(0,0,0,.22)'); poly(x, [{ x: p.x - 3.7, y: p.y - 9 }, { x: p.x + 3.7, y: p.y - 9 }, { x: p.x + 3.1, y: p.y }, { x: p.x - 3.1, y: p.y }], '#5b6385'); ellipse(x, p.x, p.y - 9, 3.7, 1.4, '#2b3048');
+      x.lineWidth = 1.3; x.lineCap = 'round'; [['#7aa2f7', -1.6, -3.2, -16], ['#9ece6a', .3, .9, -17], ['#c0caf5', 2, 4, -15]].forEach(([c, bx, tx, ty]) => { x.strokeStyle = c; x.beginPath(); x.moveTo(p.x + bx, p.y - 9); x.lineTo(p.x + tx, p.y + ty); x.stroke(); }); x.lineCap = 'butt'; ellipse(x, p.x, p.y - 9, 3.7, 1.4, null, '#7c84ad', 1); } },
+  { id: 'trophy', name: { zh: '小獎盃', en: 'Small trophy' }, slot: 'desk', spot: 'side', tags: ['測試', '驗收', '品質', '交付', '發布', '上線', 'test', 'qa', 'quality', 'accept', 'release', 'ship', 'deliver'],
+    draw(x, s, a) { const p = itC(s); ellipse(x, p.x, p.y, 5.5, 2.2, 'rgba(0,0,0,.22)'); x.fillStyle = '#4a4f6e'; x.fillRect(p.x - 4, p.y - 2.8, 8, 2.8); x.fillStyle = '#b9a574'; x.fillRect(p.x - 1, p.y - 6.4, 2, 3.8);
+      x.strokeStyle = '#b9a574'; x.lineWidth = 1.2; x.beginPath(); x.arc(p.x - 4.4, p.y - 12.4, 2, Math.PI * .5, Math.PI * 1.5); x.stroke(); x.beginPath(); x.arc(p.x + 4.4, p.y - 12.4, 2, -Math.PI * .5, Math.PI * .5); x.stroke();
+      poly(x, [{ x: p.x - 4.4, y: p.y - 16 }, { x: p.x + 4.4, y: p.y - 16 }, { x: p.x + 2.6, y: p.y - 8.6 }, { x: p.x - 2.6, y: p.y - 8.6 }], '#cdb98a'); ellipse(x, p.x, p.y - 16, 4.4, 1.3, '#e6d9b2'); ellipse(x, p.x - 1.6, p.y - 12.4, .9, 2.2, 'rgba(255,255,255,.35)'); } },
+  { id: 'dino', name: { zh: '小恐龍公仔', en: 'Toy dinosaur' }, slot: 'desk', spot: 'side', tags: ['工程', '前端', '遊戲', '程式', '原型', 'frontend', 'game', 'proto', 'dev', 'toy'],
+    draw(x, s, a) { const p = itC(s); ellipse(x, p.x, p.y, 7, 2.6, 'rgba(0,0,0,.22)'); x.save(); x.translate(p.x, p.y); x.scale(.88, .88);
+      poly(x, [{ x: -4, y: -7.2 }, { x: -9, y: -2.6 }, { x: -4, y: -3.4 }], '#7fc4a8'); ellipse(x, 0, -5.6, 5.4, 3.9, '#7fc4a8'); ellipse(x, 3.8, -9.4, 2.6, 3.4, '#7fc4a8'); ellipse(x, 5.6, -11.6, 3.2, 2.5, '#7fc4a8'); ellipse(x, 6.8, -12.2, .75, .75, '#1a1b26');
+      [[-3.2, -9], [-1, -9.6], [1.2, -9.2]].forEach(([sx, sy]) => poly(x, [{ x: sx, y: sy }, { x: sx + 1, y: sy - 2.4 }, { x: sx + 2, y: sy }], '#4f9a84')); x.fillStyle = '#6bb095'; x.fillRect(-3, -3.2, 2.2, 3.2); x.fillRect(1.2, -3.2, 2.2, 3.2); x.restore(); } },
+  { id: 'bottle', name: { zh: '水壺', en: 'Water bottle' }, slot: 'desk', spot: 'side', tags: ['行政', '採購', '業務', '客服', '值班', 'admin', 'sales', 'support', 'oncall'],
+    draw(x, s, a) { const p = itC(s); ellipse(x, p.x, p.y, 4.2, 1.9, 'rgba(0,0,0,.22)'); x.fillStyle = '#8fb3c9'; x.beginPath(); x.roundRect(p.x - 3, p.y - 15, 6, 15, [2.4, 2.4, 1.4, 1.4]); x.fill(); x.fillStyle = '#6d93ab'; x.fillRect(p.x - 3, p.y - 9.4, 6, 1.7); x.fillStyle = 'rgba(255,255,255,.3)'; x.fillRect(p.x - 2, p.y - 13.4, 1.2, 10);
+      x.fillStyle = '#3b4261'; x.beginPath(); x.roundRect(p.x - 2.1, p.y - 18.4, 4.2, 3.6, 1); x.fill(); } },
+  { id: 'snowGlobe', name: { zh: '雪花球', en: 'Snow globe' }, slot: 'desk', spot: 'side', tags: ['行銷', '品牌', '簡報', '提案', '設計', '文案', 'marketing', 'brand', 'pitch', 'deck', 'copy'],
+    draw(x, s, a) { const p = itC(s); ellipse(x, p.x, p.y, 6.4, 2.5, 'rgba(0,0,0,.22)'); x.fillStyle = '#4a4f6e'; x.beginPath(); x.roundRect(p.x - 5.2, p.y - 4.2, 10.4, 4.2, [1, 1, 1.6, 1.6]); x.fill();
+      ellipse(x, p.x, p.y - 10.6, 6.4, 6.4, 'rgba(160,205,235,.3)', '#c0caf5', 1.1); poly(x, [{ x: p.x - 2.6, y: p.y - 5.4 }, { x: p.x, y: p.y - 12.2 }, { x: p.x + 2.6, y: p.y - 5.4 }], '#4f9a6c');
+      [[-3.6, -12], [3.2, -9.6], [-2.2, -8.2], [2.9, -13.2], [.2, -14.6]].forEach(([fx, fy]) => ellipse(x, p.x + fx, p.y + fy, .7, .7, '#f4f6ff')); ellipse(x, p.x - 2.6, p.y - 13.4, 1.5, .9, 'rgba(255,255,255,.5)'); } },
+  // ── 桌面前緣 ──
+  { id: 'notebook', name: { zh: '筆記本與筆', en: 'Notebook & pen' }, slot: 'desk', spot: 'front', tags: ['會議', '紀錄', '筆記', '訪談', '統籌', '規劃', 'meeting', 'minutes', 'notes', 'plan', 'interview'],
+    draw(x, s, a) { const long = s.w >= s.h, L = long ? s.w : s.h, W = long ? s.h : s.w, at = (u, v) => long ? [s.x + u * L, s.y + v * W] : [s.x + v * W, s.y + u * L];
+      const fr = (u0, u1, v0, v1, z, c) => { const A = at(u0, v0), B = at(u1, v1); poly(x, fquad(Math.min(A[0], B[0]), Math.min(A[1], B[1]), Math.max(A[0], B[0]), Math.max(A[1], B[1]), z), c); };
+      const A = at(.03, .1), B = at(.64, .9); box(x, Math.min(A[0], B[0]), Math.min(A[1], B[1]), Math.abs(B[0] - A[0]), Math.abs(B[1] - A[1]), s.z, 2, { t: '#4b5a8a', l: '#e6e9f5', r: '#cfd4e6' }, 'rgba(192,202,245,.14)');
+      fr(.03, .1, .1, .9, s.z + 2.1, '#39446b'); fr(.44, .49, .1, .9, s.z + 2.1, '#2e3552'); fr(.2, .38, .3, .7, s.z + 2.1, '#c0caf5');
+      const p1 = P(...at(.74, .66), s.z + 1.4), p2 = P(...at(.96, .36), s.z + 1.4); x.strokeStyle = '#e6e9f5'; x.lineWidth = 1.8; x.lineCap = 'round'; x.beginPath(); x.moveTo(p1.x, p1.y); x.lineTo(p2.x, p2.y); x.stroke(); x.strokeStyle = '#3b4261'; x.lineWidth = 1.8; x.beginPath(); x.moveTo(p2.x, p2.y); x.lineTo(p2.x + (p2.x - p1.x) * .06, p2.y + (p2.y - p1.y) * .06); x.stroke(); x.lineCap = 'butt'; } },
+  // ── 桌旁地上 ──
+  { id: 'floorLamp', name: { zh: '立燈', en: 'Floor lamp' }, slot: 'floor', tags: ['閱讀', '研究', '編輯', '寫作', '文件', '校對', 'read', 'research', 'edit', 'write', 'docs'],
+    draw(x, s, a) { const p = itC(s, 0); ellipse(x, p.x, p.y, 6.5, 3, 'rgba(0,0,0,.24)'); ellipse(x, p.x, p.y - .8, 4.8, 2.2, '#3b4261'); x.strokeStyle = '#7c84ad'; x.lineWidth = 1.6; x.beginPath(); x.moveTo(p.x, p.y - 1); x.lineTo(p.x, p.y - 18.5); x.stroke();
+      poly(x, [{ x: p.x - 5.6, y: p.y - 18.5 }, { x: p.x + 5.6, y: p.y - 18.5 }, { x: p.x + 3.4, y: p.y - 26 }, { x: p.x - 3.4, y: p.y - 26 }], '#d8d3c4'); ellipse(x, p.x, p.y - 26, 3.4, 1.1, '#efe9d8'); ellipse(x, p.x, p.y - 18.5, 5.6, 1.5, '#b9b39f'); } },
+  { id: 'bookcase', name: { zh: '小書櫃', en: 'Small bookcase' }, slot: 'floor', tags: ['研究', '資料', '文件', '知識', '摘要', '查資料', 'research', 'docs', 'knowledge', 'paper', 'library'],
+    draw(x, s, a) { const x0 = s.x + .03, y0 = s.y + .05, x1 = s.x + s.w - .03, y1 = s.y + s.h - .05; box(x, x0, y0, x1 - x0, y1 - y0, 0, 24, { t: '#8a7968', l: '#6c5d50', r: '#54483e' }, 'rgba(0,0,0,.18)');
+      const bc = ['#7aa2f7', '#9ece6a', '#bb9af7', '#7dcfff', '#c0caf5'];
+      [[x0, y1, x1, y1], [x1, y0, x1, y1]].forEach(([ax, ay, bx, by], f) => [[3, 11], [13, 21]].forEach(([z1, z2], row) => { poly(x, wq(ax, ay, bx, by, .08, .92, z1, z2), '#262a3f');
+        for (let i = 0; i < 4; i++) { const u = .12 + i * .2, hh = z1 + 5 + hash2(i + f * 4, row) * 3.4; poly(x, wq(ax, ay, bx, by, u, u + .15, z1, hh), bc[(i + row * 2 + f) % 5]); } })); } },
+  { id: 'guitar', name: { zh: '吉他與立架', en: 'Guitar on a stand' }, slot: 'floor', tags: ['設計', '創意', '音樂', '行銷', '文案', 'music', 'creative', 'design', 'copy'],
+    draw(x, s, a) { const p = itC(s, 0); ellipse(x, p.x, p.y, 6, 2.6, 'rgba(0,0,0,.22)'); x.strokeStyle = '#565f89'; x.lineWidth = 1.2; x.beginPath(); x.moveTo(p.x, p.y - 6); x.lineTo(p.x - 5, p.y); x.moveTo(p.x, p.y - 6); x.lineTo(p.x + 5, p.y); x.moveTo(p.x, p.y - 6); x.lineTo(p.x, p.y + 1.4); x.stroke();
+      x.fillStyle = '#3a2f2a'; x.fillRect(p.x - .9, p.y - 24, 1.8, 10); x.fillStyle = '#2b2320'; x.fillRect(p.x - 1.7, p.y - 26.4, 3.4, 3); ellipse(x, p.x, p.y - 9, 4.6, 5.2, '#a67b55'); ellipse(x, p.x, p.y - 15, 3.4, 3.7, '#a67b55'); ellipse(x, p.x, p.y - 11.4, 1.6, 1.7, '#2a1f1a'); x.fillStyle = '#3a2f2a'; x.fillRect(p.x - 2, p.y - 6.4, 4, 1); ellipse(x, p.x - 2, p.y - 12.5, 1.2, 2.2, 'rgba(255,255,255,.18)'); } },
+  { id: 'wasteBin', name: { zh: '紙簍', en: 'Waste bin' }, slot: 'floor', tags: ['整理', '清理', '修錯', '重構', '維運', 'debug', 'refactor', 'cleanup', 'ops', 'tidy'],
+    draw(x, s, a) { const x0 = s.x + .08, y0 = s.y + .08, w = s.w - .16, h = s.h - .16; box(x, x0, y0, w, h, 0, 12, { t: '#2a2e45', l: '#566086', r: '#454d6e' }, 'rgba(192,202,245,.14)'); poly(x, fquad(x0 + .05, y0 + .05, x0 + w - .05, y0 + h - .05, 12), '#14151f');
+      [[-2.4, -1.4, 2.3], [2.2, -2.2, 2.2], [-.2, -4.4, 2.4]].forEach(([dx, dy, r]) => { const q = P(x0 + w / 2, y0 + h / 2, 12); ellipse(x, q.x + dx, q.y + dy, r, r, '#e6e9f5', '#b9bfd6', .8); ellipse(x, q.x + dx + .4, q.y + dy - .2, r * .5, r * .35, '#b9bfd6'); }); } },
+  // ── 牆上看板 ──
+  { id: 'poster', name: { zh: '山景海報', en: 'Landscape poster' }, slot: 'wall', tags: ['設計', '行銷', '品牌', '介面', '視覺', 'design', 'ui', 'marketing', 'brand', 'visual'],
+    draw(x, s, a) { const q = wq(s.x0, s.y0, s.x1, s.y1, .1, .9, s.z + 4, s.z + 24); poly(x, q, '#3a4f86', '#c0caf5', 1); poly(x, [qAt(q, 0, 1), qAt(q, .38, .34), qAt(q, .58, .62), qAt(q, .78, .44), qAt(q, 1, 1)], '#c9d3ee'); const m = qAt(q, .72, .2); ellipse(x, m.x, m.y, 1.6, 1.6, '#efe9d2'); } },
+  { id: 'corkBoard', name: { zh: '軟木留言板', en: 'Cork board' }, slot: 'wall', tags: ['專案', '排程', '待辦', '規劃', '統籌', '進度', 'project', 'plan', 'todo', 'kanban', 'schedule'],
+    draw(x, s, a) { poly(x, wq(s.x0, s.y0, s.x1, s.y1, .06, .94, s.z + 3.5, s.z + 24.5), '#76665a'); const q = wq(s.x0, s.y0, s.x1, s.y1, .14, .86, s.z + 6.5, s.z + 21.5); poly(x, q, '#b08f6b'); const R = (u0, u1, v0, v1) => [qAt(q, u0, v0), qAt(q, u1, v0), qAt(q, u1, v1), qAt(q, u0, v1)];
+      poly(x, R(.08, .5, .1, .5), '#e9e3d0'); poly(x, R(.55, .92, .3, .7), '#b8d4e8'); poly(x, R(.12, .52, .58, .92), '#c9e0bf');
+      [[.29, .14, '#5b7fd0'], [.74, .34, '#4f9a84'], [.32, .62, '#8a7fc8']].forEach(([u, v, c]) => { const p = qAt(q, u, v); ellipse(x, p.x, p.y, 1, 1, c); }); } },
+  { id: 'worldMap', name: { zh: '世界地圖', en: 'World map' }, slot: 'wall', tags: ['國際', '翻譯', '市場', '在地化', '全球', 'global', 'i18n', 'locale', 'translate', 'market', 'world'],
+    draw(x, s, a) { const q = wq(s.x0, s.y0, s.x1, s.y1, .08, .92, s.z + 6, s.z + 22); poly(x, q, '#3a5f8f', '#a9b1d6', 1);
+      [[[.1, .25], [.3, .15], [.42, .3], [.34, .55], [.22, .5]], [[.3, .6], [.42, .62], [.38, .92], [.3, .8]], [[.5, .2], [.76, .14], [.92, .3], [.8, .52], [.62, .46], [.55, .34]], [[.66, .62], [.8, .64], [.78, .84], [.68, .78]]].forEach(pts => poly(x, pts.map(([u, v]) => qAt(q, u, v)), '#6fa77c')); } },
+  { id: 'certificate', name: { zh: '證書框', en: 'Certificate' }, slot: 'wall', tags: ['資安', '合規', '稽核', '法務', '審查', '品質', 'security', 'compliance', 'audit', 'legal', 'review', 'quality'],
+    draw(x, s, a) { const q = wq(s.x0, s.y0, s.x1, s.y1, .08, .92, s.z + 6, s.z + 22); poly(x, q, '#ece6d3', '#8a7968', 1.2); const q2 = wq(s.x0, s.y0, s.x1, s.y1, .16, .84, s.z + 8, s.z + 20); poly(x, q2, null, '#c9bb90', .8);
+      poly(x, [qAt(q2, .2, .16), qAt(q2, .8, .16), qAt(q2, .8, .3), qAt(q2, .2, .3)], '#8a8f9f'); [.46, .6].forEach(v => poly(x, [qAt(q2, .15, v), qAt(q2, .85, v), qAt(q2, .85, v + .07), qAt(q2, .15, v + .07)], '#b8bccb')); const c = qAt(q2, .5, .84); ellipse(x, c.x, c.y, 1.8, 1.8, '#4f8fa8', '#8fc3d6', .8); } },
+  // ── 頭上 ──
+  { id: 'sprout', name: { zh: '頭頂小芽', en: 'Little sprout' }, slot: 'head', tags: ['成長', '新人', '學習', '入門', 'growth', 'learn', 'junior', 'onboard', 'docs'],
+    draw(x, s, a) { const r = s.r; x.strokeStyle = '#58996a'; x.lineWidth = 1.5; x.lineCap = 'round'; x.beginPath(); x.moveTo(0, -r * .92); x.quadraticCurveTo(r * .12, -r * 1.2, 0, -r * 1.5); x.stroke(); x.lineCap = 'butt';
+      [[-1, '#6fae7d'], [1, '#58996a']].forEach(([sd, c]) => { x.save(); x.translate(0, -r * 1.5); x.rotate(sd * .75); ellipse(x, sd * 2.6, 0, 2.9, 1.5, c); x.restore(); }); } },
+  { id: 'glasses', name: { zh: '圓框眼鏡', en: 'Round glasses' }, slot: 'head', tags: ['校對', '審查', '閱讀', '文件', '稽核', 'review', 'read', 'proofread', 'audit', 'docs'],
+    draw(x, s, a) { const r = s.r, gy = -r * .02, gx = r * .4, lr = r * .31; x.strokeStyle = '#2b3048'; x.lineWidth = 1.2; for (const sd of [-1, 1]) { ellipse(x, sd * gx, gy, lr, lr, 'rgba(192,202,245,.14)', '#2b3048', 1.2); x.beginPath(); x.moveTo(sd * (gx + lr), gy); x.lineTo(sd * r * 1.02, gy - r * .06); x.stroke(); }
+      x.beginPath(); x.moveTo(-gx + lr, gy); x.lineTo(gx - lr, gy); x.stroke(); } },
+  // ── 身上 ──
+  { id: 'scarf', name: { zh: '圍巾', en: 'Scarf' }, slot: 'body', tags: ['翻譯', '文案', '行銷', '研究', '市場', 'translate', 'copy', 'marketing', 'research'],
+    draw(x, s, a) { const r = s.r; x.fillStyle = shade(a.col, -.2); x.beginPath(); x.roundRect(-r * .92, -r * .98, r * 1.84, r * .55, 2.2); x.fill(); x.fillStyle = shade(a.col, -.42); x.beginPath(); x.roundRect(r * .18, -r * .55, r * .46, r * .95, 1.4); x.fill();
+      x.fillStyle = 'rgba(255,255,255,.32)'; x.fillRect(-r * .5, -r * .98, r * .16, r * .55); x.fillRect(r * .18, -r * .12, r * .46, r * .14); } },
+  { id: 'bowtie', name: { zh: '蝴蝶結領結', en: 'Bow tie' }, slot: 'body', tags: ['業務', '簡報', '客戶', '提案', '行政', '秘書', 'sales', 'client', 'pitch', 'admin'],
+    draw(x, s, a) { const r = s.r, c = shade(a.col, -.12), y = -r * .72; x.fillStyle = c; for (const sd of [-1, 1]) { x.beginPath(); x.moveTo(0, y); x.lineTo(sd * r * .62, y - r * .24); x.lineTo(sd * r * .62, y + r * .24); x.closePath(); x.fill(); }
+      x.fillStyle = shade(a.col, -.5); x.beginPath(); x.roundRect(-1.2, y - r * .13, 2.4, r * .26, .8); x.fill(); } },
 ];
 const ITEM = Object.fromEntries(ITEMS.map(it => [it.id, it]));
 const SLOT_NAME = { side: '桌角', front: '桌面前緣', floor: '桌旁地上', wall: '牆上看板', head: '頭上', body: '身上' };
+const SLOT_ORDER = ['side', 'front', 'floor', 'wall', 'head', 'body'];   // 配件庫格子的分組順序
 const slotKey = it => it.slot === 'desk' ? (it.spot === 'front' ? 'front' : 'side') : it.slot;
 const hashStr = str => { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0) / 4294967296; };
 const isTempEnt = e => e.kind === 'temp' || e.kind === 'peertemp';
@@ -1939,7 +2026,7 @@ function renderItemsCard(e) {
   else if (!edit) h += `<p class="note">${temp ? tr('Interns wear a CLI-colored hat and keep one small item on the desk.', '實習生：依 CLI 戴不同顏色的帽子，桌上只放一件小東西。') : tr('A bot from the other computer changes accessories there.', '隔壁電腦的 bot，在那台電腦上換配件。')}</p>`;
   else {
     h += `<div class="iact"><button data-act="toggle" class="${itemsOpen ? 'on' : ''}">${itemsOpen ? tr('Collapse accessory library', '收起配件庫') : tr('Open accessory library', '打開配件庫')}</button>${manual ? `<button data-act="auto">${tr('Use automatic assignment', '恢復自動配')}</button>` : ''}</div>`;
-    if (itemsOpen) h += `<div class="igrid" role="listbox" aria-label="${tr('Accessory library', '配件庫')}">${ITEMS.map(it => `<button data-item="${it.id}" class="${ids.includes(it.id) ? 'on' : ''}" aria-pressed="${ids.includes(it.id)}" title="${esc(itemLabel(it))}"><img src="${itemThumb(it)}" alt=""><span>${esc(itemLabel(it))}</span><small>${esc(slotLabel(slotKey(it)))}</small></button>`).join('')}</div><p class="note">${tr('Click to add or remove. When a slot is full, the oldest item is replaced.', '點一下加上或拿掉。同一個位置放滿時，會換掉最早放的那件。')}${HOST ? tr(' Stored on this computer.', '存在這台電腦。') : tr(' Stored in this browser for the demo.', '示範版存在這台瀏覽器。')}</p>`;
+    if (itemsOpen) h += `<div class="igrid" role="listbox" aria-label="${tr('Accessory library', '配件庫')}">${SLOT_ORDER.map(k => { const grp = ITEMS.filter(it => slotKey(it) === k); return grp.length ? `<div class="ihead" role="presentation" data-slot="${k}">${esc(slotLabel(k))}</div>` + grp.map(it => `<button data-item="${it.id}" class="${ids.includes(it.id) ? 'on' : ''}" aria-pressed="${ids.includes(it.id)}" title="${esc(itemLabel(it))}"><img src="${itemThumb(it)}" alt=""><span>${esc(itemLabel(it))}</span></button>`).join('') : ''; }).join('')}</div><p class="note">${tr('Click to add or remove. When a slot is full, the oldest item is replaced.', '點一下加上或拿掉。同一個位置放滿時，會換掉最早放的那件。')}${HOST ? tr(' Stored on this computer.', '存在這台電腦。') : tr(' Stored in this browser for the demo.', '示範版存在這台瀏覽器。')}</p>`;
   }
   $('#pItems').innerHTML = h;
 }
@@ -4053,6 +4140,25 @@ window.__office = {
   ff: sec => { for (let i = 0; i < sec * 20; i++) simStep(.05); kick(); return { simT: +simT.toFixed(1), bots: DB.bots.length }; },
   db: () => JSON.parse(JSON.stringify(DB)), demoLive: () => DEMO.live,
   items: key => { const e = M.ents.get(key); return e ? itemsOf(e) : null; }, allItems: () => Object.fromEntries([...M.ents.values()].map(e => [e.key, itemsOf(e)])), itemIds: () => ITEMS.map(i => i.id),
+  itemInfo: () => ITEMS.map(i => ({ id: i.id, zh: i.name.zh, en: i.name.en, slot: i.slot, spot: i.spot || null, key: slotKey(i), tags: i.tags.length, generic: !!i.generic, temp: !!i.temp })),
+  itemProbe: (id, seatKey, flat, idx = 0) => {                 // 配件畫在一塊空白畫布上（真的位置、真的畫法）：回傳畫到的範圍和那個位子在畫面上的範圍，給測試比對
+    const it = ITEM[id], seat = M.seats.get(seatKey), g = seat && geo(seat); if (!it || !g) return null;
+    const sp = spotsOf(g), k = slotKey(it), spot = k === 'side' ? sp.side[idx] : k === 'front' ? sp.front : k === 'floor' ? sp.floor : k === 'wall' ? sp.wall : null, sv = { m: V.m, tp: V.tp };
+    if (!spot && k !== 'head' && k !== 'body') return { id, face: g.face, spot: null, nspots: k === 'side' ? sp.side.length : 0 };
+    V.m = flat ? 0 : 1; V.tp = false;
+    try {
+      const cvs = document.createElement('canvas'); cvs.width = 700; cvs.height = 500; const x = cvs.getContext('2d'), a = { face: g.face, col: COL.purple, st: 'working', lit: true, t: 1.3 };
+      const ref = k === 'wall' ? P((spot.x0 + spot.x1) / 2, (spot.y0 + spot.y1) / 2, spot.z) : spot ? P(spot.x + spot.w / 2, spot.y + spot.h / 2, spot.z) : { x: 0, y: 0 }, ox = 350 - ref.x, oy = 300 - ref.y;
+      const rectOf = pts => ({ x0: Math.min(...pts.map(p => p.x)) + ox, x1: Math.max(...pts.map(p => p.x)) + ox, y0: Math.min(...pts.map(p => p.y)) + oy, y1: Math.max(...pts.map(p => p.y)) + oy });
+      let rect;
+      if (k === 'head' || k === 'body') { const r = k === 'head' ? 8.8 : 7.5; x.translate(350, 300); it.draw(x, { r }, a); rect = { x0: 350 - r * 1.3, x1: 350 + r * 1.3, y0: 300 - r * 1.9, y1: 300 + r * 1.2 }; }
+      else if (k === 'wall') { x.translate(ox, oy); it.draw(x, spot, a); rect = rectOf([P(spot.x0, spot.y0, spot.z), P(spot.x1, spot.y1, spot.z), P(spot.x0, spot.y0, spot.z + 26), P(spot.x1, spot.y1, spot.z + 26)]); }
+      else { x.translate(ox, oy); it.draw(x, spot, a); rect = rectOf([[0, 0], [1, 0], [1, 1], [0, 1]].map(([u, v]) => P(spot.x + u * spot.w, spot.y + v * spot.h, spot.z))); }
+      const d = x.getImageData(0, 0, 700, 500).data; let x0 = 1e9, x1 = -1, y0 = 1e9, y1 = -1, n = 0;
+      for (let yy = 0; yy < 500; yy++) for (let xx = 0; xx < 700; xx++) if (d[(yy * 700 + xx) * 4 + 3] > 24) { n++; if (xx < x0) x0 = xx; if (xx > x1) x1 = xx; if (yy < y0) y0 = yy; if (yy > y1) y1 = yy; }
+      return { id, face: g.face, n, bbox: n ? { x0, x1: x1 + 1, y0, y1: y1 + 1 } : null, rect };
+    } finally { V.m = sv.m; V.tp = sv.tp; }
+  },
 };
 
 /* ══════════ 啟動 ══════════ */
