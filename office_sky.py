@@ -9,6 +9,8 @@ NEVER blocks the caller: answer() returns the cache at once and, when it is stal
 MET Norway's terms, all kept here: an identifying User-Agent (a generic one is a 403), coordinates TRUNCATED to 4
 decimals, gzip, If-Modified-Since with the last Last-Modified (304 keeps the data), nothing before the `Expires`
 time and never more often than every 30 min, and a back-off after a failure (15 min, then 60). Only urllib.
+TLS is verified as usual, against the system's roots plus MET Norway's root CA (see _ssl_context: Windows does not
+ship that root until something on the machine fetches it, and Python does not fetch roots).
 
 What is remembered (state folder, office_sky.json, so a restart neither forgets the place nor asks again): the last
 valid time zone and the reduced forecast (hour, symbol, cloud). A reading older than 3 h is reported as None.
@@ -16,6 +18,7 @@ valid time zone and the reduced forecast (hour, symbol, cloud). A reading older 
 import gzip
 import json
 import os
+import ssl
 import tempfile
 import threading
 import time
@@ -46,6 +49,50 @@ MAX_BODY = 4 << 20
 # In this order; "partlycloudy" is asked before "cloudy" because it contains it.
 KINDS = (("fog", "fog"), ("sleet", "sleet"), ("snow", "snow"), ("rain", "rain"), ("partlycloudy", "partly"),
          ("fair", "partly"), ("cloudy", "cloudy"), ("clearsky", "clear"))
+
+# MET Norway's certificate (api.met.no: GEANT TLS RSA 1) chains to this public root. Windows keeps a trimmed root store
+# and downloads a missing root only when its own verifier needs it; Python reads the store as it is, so on a Windows
+# machine that never visited such a site every request failed with CERTIFICATE_VERIFY_FAILED and the windows had no
+# weather. This root is in the Microsoft, Apple and Mozilla programs; adding it to THIS request's context (on top of
+# the system roots, verification and hostname check unchanged) fixes that. If MET Norway moves to another CA, the
+# system roots still apply as before. HARICA TLS RSA Root CA 2021, valid until 2045-02-13,
+# SHA-256 D95D0E8EDA79525BF9BEB11B14D2100D3294985F0C62D9FABD9CD999ECCB7B1D.
+MET_ROOT_PEM = """\
+-----BEGIN CERTIFICATE-----
+MIIFpDCCA4ygAwIBAgIQOcqTHO9D88aOk8f0ZIk4fjANBgkqhkiG9w0BAQsFADBs
+MQswCQYDVQQGEwJHUjE3MDUGA1UECgwuSGVsbGVuaWMgQWNhZGVtaWMgYW5kIFJl
+c2VhcmNoIEluc3RpdHV0aW9ucyBDQTEkMCIGA1UEAwwbSEFSSUNBIFRMUyBSU0Eg
+Um9vdCBDQSAyMDIxMB4XDTIxMDIxOTEwNTUzOFoXDTQ1MDIxMzEwNTUzN1owbDEL
+MAkGA1UEBhMCR1IxNzA1BgNVBAoMLkhlbGxlbmljIEFjYWRlbWljIGFuZCBSZXNl
+YXJjaCBJbnN0aXR1dGlvbnMgQ0ExJDAiBgNVBAMMG0hBUklDQSBUTFMgUlNBIFJv
+b3QgQ0EgMjAyMTCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoCggIBAIvC569l
+mwVnlskNJLnQDmT8zuIkGCyEf3dRywQRNrhe7Wlxp57kJQmXZ8FHws+RFjZiPTgE
+4VGC/6zStGndLuwRo0Xua2s7TL+MjaQenRG56Tj5eg4MmOIjHdFOY9TnuEFE+2uv
+a9of08WRiFukiZLRgeaMOVig1mlDqa2YUlhu2wr7a89o+uOkXjpFc5gH6l8Cct4M
+pbOfrqkdtx2z/IpZ525yZa31MJQjB/OCFks1mJxTuy/K5FrZx40d/JiZ+yykgmvw
+Kh+OC19xXFyuQnspiYHLA6OZyoieC0AJQTPb5lh6/a6ZcMBaD9YThnEvdmn8kN3b
+LW7R8pv1GmuebxWMevBLKKAiOIAkbDakO/IwkfN4E8/BPzWr8R0RI7VDIp4BkrcY
+AuUR0YLbFQDMYTfBKnya4dC6s1BG7oKsnTH4+yPiAwBIcKMJJnkVU2DzOFytOOqB
+AGMUuTNe3QvboEUHGjMJ+E20pwKmafTCWQWIZYVWrkvL4N48fS0ayOn7H6NhStYq
+E613TBoYm5EPWNgGVMWX+Ko/IIqmhaZ39qb8HOLubpQzKoNQhArlT4b4UEV4AIHr
+W2jjJo3Me1xR9BQsQL4aYB16cmEdH2MtiKrOokWQCPxrvrNQKlr9qEgYRtaQQJKQ
+CoReaDH46+0N0x3GfZkYVVYnZS6NRcUk7M7jAgMBAAGjQjBAMA8GA1UdEwEB/wQF
+MAMBAf8wHQYDVR0OBBYEFApII6ZgpJIKM+qTW8VX6iVNvRLuMA4GA1UdDwEB/wQE
+AwIBhjANBgkqhkiG9w0BAQsFAAOCAgEAPpBIqm5iFSVmewzVjIuJndftTgfvnNAU
+X15QvWiWkKQUEapobQk1OUAJ2vQJLDSle1mESSmXdMgHHkdt8s4cUCbjnj1AUz/3
+f5Z2EMVGpdAgS1D0NTsY9FVqQRtHBmg8uwkIYtlfVUKqrFOFrJVWNlar5AWMxaja
+H6NpvVMPxP/cyuN+8kyIhkdGGvMA9YCRotxDQpSbIPDRzbLrLFPCU3hKTwSUQZqP
+JzLB5UkZv/HywouoCjkxKLR9YjYsTewfM7Z+d21+UPCfDtcRj88YxeMn/ibvBZ3P
+zzfF0HvaO7AWhAw6k9a+F9sPPg4ZeAnHqQJyIkv3N3a6dcSFA1pj1bF1BcK5vZSt
+jBWZp5N99sXzqnTPBIWUmAD04vnKJGW/4GKvyMX6ssmeVkjaef2WdhW+o45WxLM0
+/L5H9MG0qPzVMIho7suuyWPEdr6sOBjhXlzPrjoiUevRi7PzKzMHVIf6tLITe7pT
+BGIBnfHAT+7hOtSLIBD6Alfm78ELt5BGnBkpjNxvoEppaZS3JGWg/6w/zgH7IS79
+aPib8qXPMThcFarmlwDB31qlpzmq6YR/PFGoOtmUW4y/Twhx5duoXNTSpv4Ao8YW
+xw/ogM4cKGR0GQjTQuPOAF1/sdwTsOEFy9EgqoZ0njnnkf3/W9b3raYvAwtt41dU
+63ZTGI0RmLo=
+-----END CERTIFICATE-----
+"""
+MET_ROOT_SHA256 = "D95D0E8EDA79525BF9BEB11B14D2100D3294985F0C62D9FABD9CD999ECCB7B1D"
 
 _LOCK = threading.Lock()
 _S = {"loaded": False, "tz": "", "cache": None, "thread": None, "fails": 0, "next_ok": 0.0}
@@ -168,11 +215,23 @@ def _hdr(headers) -> dict:
     return {str(k).lower(): v for k, v in (headers or {}).items()}
 
 
+_CTX = []
+
+
+def _ssl_context() -> ssl.SSLContext:
+    """The system's default verifying context plus MET Norway's root (see MET_ROOT_PEM). Built once."""
+    if not _CTX:
+        ctx = ssl.create_default_context()
+        ctx.load_verify_locations(cadata=MET_ROOT_PEM)
+        _CTX.append(ctx)
+    return _CTX[0]
+
+
 def _http(url, headers):
     """The real request: (status, headers, raw body). 304 is an answer, not an error."""
     req = urllib.request.Request(url, headers=headers)
     try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT_S) as r:
+        with urllib.request.urlopen(req, timeout=TIMEOUT_S, context=_ssl_context()) as r:
             return r.status, dict(r.headers.items()), r.read(MAX_BODY + 1)
     except urllib.error.HTTPError as e:
         return e.code, dict(e.headers.items()) if e.headers else {}, b""

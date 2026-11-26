@@ -123,7 +123,7 @@ def apply_marked_block(text: str, block: str) -> str:
     pattern = re.compile(re.escape(MARK_START) + r".*?" + re.escape(MARK_END) + r"\n?",
                          re.DOTALL)
     if pattern.search(text):
-        return pattern.sub(block, text, count=1)
+        return pattern.sub(lambda _m: block, text, count=1)   # a function: the block's Windows paths (C:\Users\…) are not escapes
     sep = "" if (not text or text.endswith("\n\n")) else ("\n" if text.endswith("\n") else "\n\n")
     return text + sep + block
 

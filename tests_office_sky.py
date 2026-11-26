@@ -4,7 +4,8 @@
 No network, ever: every fetch is a stub; the state folder is the test's own (SHELLFRAME_CONFIG_DIR).
   1. places: zone.tab parse (negative 7-digit entry), place_of (zone, alias, UTC, Etc/*, unknown), the generated file
   2. classify: all 41 MET base names get a kind; suffixes stripped; thunder / heavy / light / showers
-  3. the request: User-Agent, coordinates truncated to 4 decimals, gzip decoded, If-Modified-Since, 304
+  3. the request: User-Agent, coordinates truncated to 4 decimals, gzip decoded, If-Modified-Since, 304; TLS against
+     the system roots plus MET Norway's root, verification and hostname check on (Windows lacks that root)
   4. the pace: nothing before Expires or inside 30 min, back-off 15 then 60 min, no block while a fetch runs
   5. the answer: switch off / want_weather false never fetch, a reading over 3 h old is null, the symbol picked for now
   6. the time zone: remembered across a restart (office_sky.json), an empty one uses it, the phone's never does
@@ -184,6 +185,45 @@ fresh()
 st = Stub(ok200(doc(), gz=False, expires=NOW + 100))
 ask(st)
 check("a plain (not gzipped) body works too", S.answer(CFG, "Asia/Taipei", True, now=NOW + 1)["weather"]["kind"] == "rain")
+
+# TLS: the system's verifying context plus MET Norway's root (Windows ships without it: every fetch failed there).
+import hashlib  # noqa: E402
+import ssl  # noqa: E402
+made = []
+real_cdc = S.ssl.create_default_context
+S.ssl.create_default_context = lambda *a, **k: (made.append((a, k)), real_cdc(*a, **k))[1]
+S._CTX.clear()
+try:
+    ctx = S._ssl_context()
+finally:
+    S.ssl.create_default_context = real_cdc
+check("the context starts from ssl.create_default_context() (the system roots), default purpose", made == [((), {})], made)
+check("verification is on: CERT_REQUIRED and the hostname is checked", ctx.verify_mode == ssl.CERT_REQUIRED and ctx.check_hostname is True,
+      (ctx.verify_mode, ctx.check_hostname))
+cns = [dict(x[0] for x in c["subject"]).get("commonName") for c in ctx.get_ca_certs()]
+check("MET Norway's root is in it: HARICA TLS RSA Root CA 2021", "HARICA TLS RSA Root CA 2021" in cns, cns[-5:])
+der = ssl.PEM_cert_to_DER_cert(S.MET_ROOT_PEM)
+check("the embedded root is the published one (SHA-256 D95D0E8E…7B1D)",
+      hashlib.sha256(der).hexdigest().upper() == S.MET_ROOT_SHA256 == "D95D0E8EDA79525BF9BEB11B14D2100D3294985F0C62D9FABD9CD999ECCB7B1D")
+mine = next(c for c in ctx.get_ca_certs() if dict(x[0] for x in c["subject"]).get("commonName") == "HARICA TLS RSA Root CA 2021")
+check("…self-signed, valid until 2045", mine["subject"] == mine["issuer"] and "2045" in mine["notAfter"], mine.get("notAfter"))
+check("built once", S._ssl_context() is ctx)
+got = {}
+real_open = S.urllib.request.urlopen
+
+
+def fake_open(req, timeout=None, context=None):
+    got.update(url=req.full_url, timeout=timeout, context=context)
+    raise S.urllib.error.HTTPError(req.full_url, 503, "busy", {}, None)
+
+
+S.urllib.request.urlopen = fake_open
+try:
+    res = S._http(S._url((25.05, 121.5)), {"User-Agent": S.UA})
+finally:
+    S.urllib.request.urlopen = real_open
+check("the real request goes out with that context (and the timeout)", got.get("context") is ctx and got.get("timeout") == S.TIMEOUT_S, got)
+check("…an HTTP error is still an answer, not an exception", res[0] == 503, res)
 
 # ── 4. the pace ──────────────────────────────────────────────────────────────
 print("the pace")

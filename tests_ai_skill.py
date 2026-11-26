@@ -87,6 +87,13 @@ def main():
     check("installing twice leaves one block", once == twice and once.count(ai_skill.MARK_START) == 1)
     check("the user's own text survives", "不要動我" in once)
     check("removal puts the file back", ai_skill.remove_marked_block(once).rstrip() == base.rstrip())
+    win = f"{ai_skill.MARK_START}\nrun C:\\Users\\demo\\.local\\apps\\shellframe\\sfctl.cmd skill\n{ai_skill.MARK_END}\n"
+    try:
+        again = ai_skill.apply_marked_block(ai_skill.apply_marked_block(base, win), win)
+        win_ok = again.count(ai_skill.MARK_START) == 1 and "C:\\Users\\demo\\.local" in again
+    except Exception as e:   # re.sub used to read \U in the replacement as an escape: "bad escape \U"
+        win_ok, again = False, repr(e)
+    check("re-applying a block with a Windows path (C:\\Users\\…) keeps it literally", win_ok)
 
     print()
     if FAILED:

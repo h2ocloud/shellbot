@@ -60,6 +60,15 @@
   桌子後面的東西會被螢幕蓋住，桌子近端靠前那個角上的高東西則會蓋到螢幕。現在桌上兩個角都在遠端，小看板留在近端，地上的位置改到近端
   旁邊的地毯上；這張桌子上的東西都不會和螢幕交疊。其他桌子後面那個桌角不再壓到螢幕底座。測試會逐一檢查每個位置和螢幕不重疊，立體圖也算。
 
+- **Windows: "Write Codex AGENTS.md" works again when the file already has ShellBot's section.**
+  Found while testing on Windows: Settings → AI instructions (Skill) → Write Codex AGENTS.md failed with "bad escape \U"
+  when ~/.codex/AGENTS.md already had ShellBot's section, because the path in it (C:\Users\…) was read as an escape
+  when the section was replaced. The section is now put back as written. A test re-applies a section with a Windows path.
+
+  **Windows：「寫入 Codex AGENTS.md」在檔案裡已經有 ShellBot 段落時也能用。** 在 Windows 測試時發現：設定 → 給 AI 的使用說明
+  （Skill）→ 寫入 Codex AGENTS.md，如果 ~/.codex/AGENTS.md 裡已經有 ShellBot 的段落，就會出現「bad escape \U」，因為取代段落
+  時把裡面的路徑（C:\Users\…）當成跳脫字元。現在段落照原文放回去；測試會用含 Windows 路徑的段落重複套用。
+
 ### Internal
 
 - `office_sky.py` (place from `office_places.py`, a table generated from the public-domain tz database's zone.tab; weather
@@ -68,6 +77,11 @@
   `settings.office_weather`. office.html: THEMES / applyTheme, the sun and moon (low-precision astronomy), the weather
   layer; itC / itFace helpers for accessories. Tests: tests_office_sky.py, tests_office_theme_ui.py,
   tests_office_items_ui.py, tests_office_app_host.js.
+- The weather request verifies TLS against the system roots plus MET Norway's root CA (HARICA TLS RSA Root CA 2021,
+  embedded in `office_sky.py`): Windows ships a trimmed root store and Python never fetches a missing root, so on a
+  Windows machine every request failed CERTIFICATE_VERIFY_FAILED and the windows had no weather. Verification and the
+  hostname check stay on; tests_office_sky.py checks the context, the root's fingerprint and that the request uses it.
+- `ai_skill.apply_marked_block` replaces the section with a function, not a template string.
 
 ## v0.65.0 (2026-11-25)
 
