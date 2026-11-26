@@ -562,8 +562,8 @@
   }
 
   // ── 辦公室風格 (Settings → Office): office.json's `theme`; the phone app shows the desktop's ─────────────────────────
-  // The names here and office.html's THEMES are the same five; night is the original look and is saved as no key at all.
-  const THEMES = [['night', 'Night blue', '夜藍'], ['wood', 'Warm wood', '暖木'], ['loft', 'Industrial loft', '工業風'], ['green', 'Greenhouse', '綠意'], ['nordic', 'Nordic light', '北歐淺色']];
+  // The names here and office.html's THEMES are the same three; night is the original look and is saved as no key at all.
+  const THEMES = [['night', 'Night blue', '夜藍'], ['wood', 'Warm wood', '暖木'], ['nordic', 'Nordic light', '北歐淺色']];
   const themeNow = () => { const v = prefs && prefs.theme; return THEMES.some(x => x[0] === v) ? v : 'night'; };
   async function setTheme(id) {
     if (!THEMES.some(x => x[0] === id)) return false;
@@ -583,7 +583,7 @@
       row.id = 'sfo-theme';
       row.className = 'sx-row';
       row.innerHTML = '<div class="sx-txt"><div class="sx-label"></div><div class="sx-hint"></div></div>' +
-        '<div class="sx-ctl"><select id="setting-office-theme" class="sx-input"></select></div>';
+        '<div class="sx-ctl"><select id="setting-office-theme" class="sx-input" data-guide="office-style"></select></div>';
       box.appendChild(row);
       row.querySelector('select').addEventListener('change', async function () {
         const want = this.value;

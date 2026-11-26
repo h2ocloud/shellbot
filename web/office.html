@@ -150,7 +150,7 @@ body.live-data #addOne,body.live-data #addTen,body.live-data #demoHandoff{displa
 body.embedded #top{padding-right:calc(58px / var(--ui))}
 /* ── 風格：淺色（北歐淺色）。只換浮在地板上的工具列、圖例和右下角的鈕；狀態數字的小卡維持深底，顏色才跟畫面上的狀態一樣看得清楚。
    彈出的看板、日曆、追蹤面板本來就是一張深色卡片，不換。 ── */
-html.sty-light #top,html.sty-light #legend,html.sty-light #tools{--panel:#fbf8f3;--line:#d9d1c4;--ink:#2d2a26;--dim:#6b645a;--mute:#9a9286}
+html.sty-light #top,html.sty-light #legend,html.sty-light #tools{--panel:#fbf8f3;--line:#d9d1c4;--ink:#2d2a26;--dim:#6b645a;--mute:#9a9286;color:var(--ink)}
 html.sty-light #top{background:linear-gradient(180deg,rgba(251,248,243,.97),rgba(246,242,235,.92));box-shadow:0 6px 24px rgba(90,70,40,.12)}
 html.sty-light .mark{background:linear-gradient(150deg,#f3ede4,#e6dfd3)}
 html.sty-light .search,html.sty-light .ib,html.sty-light .seg,html.sty-light .sel select{background:rgba(255,255,255,.7)}
@@ -1325,7 +1325,6 @@ function drawRoomShell(x, r, far) {
     poly(x, wq(r.x, d0, r.x, d1, 0, 1, 0, Hh - 14), 'rgba(10,11,18,.55)', alpha(COL.green, .45), 1.2);
   } else box(x, r.x - th, r.y, th, r.h, 0, Hh, cols, edge);
   if (far) return;
-  if (STY.brick) for (let z = 7; z < Hh - 4; z += 7) { poly(x, wq(r.x, r.y, r.x + r.w, r.y, 0, 1, z, z + .8), STY.brick); poly(x, wq(r.x, r.y, r.x, r.y + r.h, 0, 1, z, z + .8), STY.brick); }   // 磚牆的灰縫
   poly(x, wq(r.x, r.y, r.x + r.w, r.y, 0, 1, 0, 4), STY.base); poly(x, wq(r.x, r.y, r.x, r.y + r.h, 0, 1, 0, 4), STY.base);
   if (r.kind === 'lobby') {
     wallFace(x, r.x, r.y, r.x + r.w, r.y, Hh, 7, i => i <= 2 || i === 4, null, r);
@@ -1348,13 +1347,13 @@ let EDGE = 'rgba(192,202,245,.10)';   // 風格（applyTheme）會換
 /* ══════════ 6.9 辦公室風格（theme）══════════
    風格只換環境：背景、地板、牆、窗外、家具、植物、地毯。狀態的顏色（亮螢幕＝在忙、紅「!」、黃牌、咖啡杯）、人物、頭像、
    座位、資料都不動。night 是原本的樣子；其他風格只寫跟 night 不同的部分。sky：'night' 原本的夜景窗，'time' 依看的人當地時間
-   白天／黃昏／夜晚。floor：'grid' 格線、'planks' 木地板、'tiles' 磁磚。 */
+   白天／黃昏／夜晚。floor：'grid' 格線、'planks' 木地板。 */
 const THEMES = {
   night: { name: { en: 'Night blue', zh: '夜藍' },
     bg: ['#222539', '#15161f'], slab: { l: '#191b29', r: '#13141e', t: '#1e2131' }, lobbyTop: '#22253a', peerTop: '#1e2738',
     bridge: { l: '#171925', r: '#12131b', t: '#1c1f2e' }, yard: { l: '#161824', r: '#11121a', t: '#1a1d2c' }, floor: 'grid', seam: 'rgba(192,202,245,.035)', guide: 'rgba(192,202,245,.12)', zoneShade: -.84, zoneMix: 0,
     wall: { lobby: { l: '#2b2f47', r: '#252840', t: '#3d4363' }, zone: { l: '#292d44', r: '#23263b', t: '#3a4060' }, peer: { l: '#263045', r: '#20293c', t: '#3a4b68' } },
-    wallEdge: 'rgba(192,202,245,.12)', base: 'rgba(0,0,0,.18)', brick: '', sky: 'night', frame: 'rgba(125,207,255,.16)', mullion: '',
+    wallEdge: 'rgba(192,202,245,.12)', base: 'rgba(0,0,0,.18)', sky: 'night', frame: 'rgba(125,207,255,.16)', mullion: '',
     rug: ['#2a2440', 'rgba(187,154,247,.35)', 'rgba(187,154,247,.14)'],
     desk: { t: '#3a3f5c', l: '#2a2e45', r: '#22263a' }, bigdesk: { t: '#4a4068', l: '#352d4f', r: '#2a2440' }, table: { t: '#43405a', l: '#302d44', r: '#272538' },
     chair: { t: '#2f3349', l: '#282b40', r: '#202336' }, chairb: { t: '#3d425f', l: '#363b56', r: '#2c3048' }, panel: { t: '#3d425f', l: '#33384f', r: '#2a2e42' }, edge: 'rgba(192,202,245,.10)',
@@ -1385,30 +1384,8 @@ const THEMES = {
     sofa: { t: '#b9b3a9', l: '#a6a096', r: '#968f86' }, sofaBack: { t: '#c6c0b6', l: '#b3ada3', r: '#a39d93' }, rack: { t: '#d3cdc3', l: '#bfb9af', r: '#b0aaa0' },
     book: { t: '#d6bb93', l: '#bda27b', r: '#aa906a', back: '#8f7656', board: '#c4a882' }, cab: { t: '#eeeae4', l: '#d6d0c7', r: '#c6c0b6', front: '#e2ddd5' },
     note: '#8a6418', sleepBg: 'rgba(26,27,38,.82)', sleepInk: '#9aa0bd', light: 1 },
-  loft: { name: { en: 'Industrial loft', zh: '工業風' },
-    bg: ['#242424', '#141414'], slab: { l: '#3a3b3d', r: '#313234', t: '#646567' }, lobbyTop: '#6a6b6d', peerTop: '#606163',
-    bridge: { l: '#363739', r: '#2e2f31', t: '#5c5d5f' }, yard: { l: '#2f3032', r: '#28292b', t: '#4a4b4d' }, floor: 'tiles', seam: 'rgba(0,0,0,.18)', guide: 'rgba(255,196,120,.22)', zoneMix: .1,
-    wall: { lobby: { l: '#7a4334', r: '#68392c', t: '#8b4f40' }, zone: { l: '#764032', r: '#64372a', t: '#874c3d' }, peer: { l: '#723e31', r: '#613529', t: '#83493b' } },
-    wallEdge: 'rgba(0,0,0,.28)', base: 'rgba(0,0,0,.28)', brick: 'rgba(40,18,12,.32)', sky: 'time', frame: '#1e1e20', mullion: '#1e1e20',
-    rug: ['#4a382c', 'rgba(222,150,82,.5)', 'rgba(222,150,82,.22)'],
-    desk: { t: '#9b7651', l: '#2c2c2e', r: '#242426' }, bigdesk: { t: '#86613f', l: '#2a2a2c', r: '#222224' }, table: { t: '#86613f', l: '#2a2a2c', r: '#222224' },
-    chair: { t: '#2a2a2c', l: '#222224', r: '#1c1c1e' }, chairb: { t: '#363638', l: '#2e2e30', r: '#28282a' }, panel: { t: '#3a3a3c', l: '#2f2f31', r: '#27272a' }, edge: 'rgba(255,255,255,.07)',
-    shelf: { t: '#3a3b3d', l: '#2e2f31', r: '#27282a' }, counter: { t: '#9b7651', l: '#2c2c2e', r: '#242426' }, pot: { t: '#7d7e80', l: '#6c6d6f', r: '#5d5e60' }, leaf: ['#3f7d49', '#58a062'],
-    sofa: { t: '#6b4430', l: '#583726', r: '#4a2e20' }, sofaBack: { t: '#7a4f39', l: '#65412e', r: '#553626' }, rack: { t: '#2a2a2c', l: '#1f1f21', r: '#19191b' },
-    book: { t: '#3a3b3d', l: '#2e2f31', r: '#27282a', back: '#1c1c1e', board: '#45464a' }, cab: { t: '#6e7377', l: '#5a5f63', r: '#4b4f53', front: '#666b6f' } },
-  green: { name: { en: 'Greenhouse', zh: '綠意' },
-    bg: ['#1f2a22', '#111813'], slab: { l: '#2c3630', r: '#252e28', t: '#46524a' }, lobbyTop: '#4a574e', peerTop: '#435047',
-    bridge: { l: '#29332d', r: '#222b25', t: '#414d45' }, yard: { l: '#232c27', r: '#1d2520', t: '#38433c' }, floor: 'tiles', seam: 'rgba(0,0,0,.14)', guide: 'rgba(220,240,210,.16)', zoneMix: .1,
-    wall: { lobby: { l: '#5b7a64', r: '#506d59', t: '#6c8b75' }, zone: { l: '#58765f', r: '#4d6a55', t: '#698770' }, peer: { l: '#55725c', r: '#4a6652', t: '#66836d' } },
-    wallEdge: 'rgba(230,245,225,.12)', base: 'rgba(0,0,0,.2)', sky: 'time', frame: '#e6ede4', mullion: '#e6ede4',
-    rug: ['#3c5a3f', 'rgba(170,210,140,.5)', 'rgba(170,210,140,.22)'],
-    desk: { t: '#b38e64', l: '#95734f', r: '#806244' }, bigdesk: { t: '#a07c55', l: '#856545', r: '#72563a' }, table: { t: '#a07c55', l: '#856545', r: '#72563a' },
-    chair: { t: '#e2ded3', l: '#ccc7bb', r: '#bcb7ab' }, chairb: { t: '#ece8de', l: '#d7d2c6', r: '#c8c3b7' }, panel: { t: '#b38e64', l: '#95734f', r: '#806244' }, edge: 'rgba(255,250,235,.1)',
-    shelf: { t: '#8a6a48', l: '#73583b', r: '#634b32' }, counter: { t: '#b38e64', l: '#95734f', r: '#806244' }, pot: { t: '#b9714e', l: '#a5603f', r: '#925436' }, leaf: ['#4f9a58', '#6fbf6d'],
-    sofa: { t: '#c9b79a', l: '#b5a385', r: '#a39276' }, sofaBack: { t: '#d6c5a8', l: '#c2b193', r: '#b09f82' }, rack: { t: '#33403a', l: '#28332d', r: '#222b26' },
-    book: { t: '#8a6a48', l: '#73583b', r: '#634b32', back: '#4a3826', board: '#7c5e40' }, cab: { t: '#d9d5ca', l: '#c3beb2', r: '#b2ada1', front: '#cfcabe' }, plants: 1 },
 };
-let STY = THEMES.night;
+let STY = themeOf('night');   // 看板單獨開（BOARD_ONLY）不套風格，也要有 id
 function themeOf(id) { const b = THEMES.night, t = THEMES[id] || b, o = { id: THEMES[id] ? id : 'night' }; for (const k in b) o[k] = k in t ? t[k] : b[k]; return o; }
 function applyTheme(id) {
   STY = themeOf(id);
@@ -1422,7 +1399,7 @@ function applyTheme(id) {
 }
 function mixHex(a, b, k) { const A = hexRgb(a), B = hexRgb(b); return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * k)).join(',')})`; }
 const zoneFloor = col => STY.zoneMix ? mixHex(STY.slab.t, col, STY.zoneMix) : shade(col, STY.zoneShade);
-function floorLines(x, x0, y0, w, h, col) {   // 地板的接縫：格線（grid／tiles）或木地板（planks：一條條木板，接縫錯開）
+function floorLines(x, x0, y0, w, h, col) {   // 地板的接縫：格線（grid）或木地板（planks：一條條木板，接縫錯開）
   if (STY.floor !== 'planks') return gridLines(x, x0, y0, Math.round(w), Math.round(h), col);
   const bw = .42, seed = Math.round(x0 * 5 + y0 * 3); x.beginPath();
   for (let j = 0, v = 0; v < h - .02; j++, v += bw) {
@@ -1789,9 +1766,10 @@ function spotsOf(g) {  // 桌上、地上、看板的位置（格子座標）；
   const z = deskH(g);
   if (g.shared) return { side: [{ x: g.x + g.w - .34, y: g.y + .12, w: .28, h: .28, z }], front: null, floor: null, wall: null };
   // 秘書長的大桌面向左上（face 'nx'）：螢幕立在桌子後緣（x 小的那邊）、沿桌子長邊佔中間一段，立體圖裡會往左上蓋過它後面和兩旁的東西。
-  // 所以桌上的東西只放在螢幕兩端以外，地上的放在桌子遠端旁邊（不放桌子後面），牆上的小看板在另一端。
-  if (g.face === 'nx') return { side: [{ x: g.x + .08, y: g.y + .1, w: .36, h: .34, z }, { x: g.x + .55, y: g.y + g.h - .62, w: .4, h: .4, z }, { x: g.x + .55, y: g.y + .16, w: .4, h: .4, z }],
-    front: { x: g.x + .62, y: g.y + g.h / 2 - .3, w: .26, h: .6, z }, floor: { x: g.x + .3, y: g.y - .56, w: .44, h: .44, z: 0 }, wall: { x0: g.x + .1, y0: g.y + g.h - .4, x1: g.x + .1, y1: g.y + g.h - .08, z } };
+  // 所以桌上的兩個角都在遠端（螢幕右上方，蓋不到它），近端只放牆上的小看板（在螢幕左邊）；近端靠前的角在立體圖會壓到螢幕左下，不放東西。
+  // 地上的放在近端外面的地毯上（不放桌子後面，也不放遠端，那邊已經有兩個桌角）。
+  if (g.face === 'nx') return { side: [{ x: g.x + .06, y: g.y + .06, w: .38, h: .36, z }, { x: g.x + .64, y: g.y + .06, w: .38, h: .36, z }],
+    front: { x: g.x + .62, y: g.y + g.h / 2 - .3, w: .26, h: .6, z }, floor: { x: g.x + .02, y: g.y + g.h + .28, w: .4, h: .4, z: 0 }, wall: { x0: g.x + .1, y0: g.y + g.h - .4, x1: g.x + .1, y1: g.y + g.h - .08, z } };
   return { side: [{ x: g.x + .06, y: g.y + .3, w: .38, h: .4, z }, { x: g.x + g.w - .48, y: g.y + .34, w: .42, h: .4, z }],   // 桌角兩個都在螢幕那條線前面（螢幕在 y .13～.21，大桌的螢幕更寬）
     front: { x: g.x + .44, y: g.y + .5, w: .52, h: .22, z }, floor: { x: g.x + g.w + .12, y: g.y + .16, w: .42, h: .42, z: 0 }, wall: { x0: g.x + g.w - .34, y0: g.y + .1, x1: g.x + g.w - .04, y1: g.y + .1, z } };
 }
@@ -4061,7 +4039,7 @@ window.__office = {
     const wall = Object.entries(WALL_OBJ).map(([id, o]) => ({ id, x0: o.q[0], x1: o.q[2], z0: o.q[6], z1: o.q[7] }));
     return { w: r.w, h: r.h, floor, fixtures, wall, rug: { x0: 8.9, x1: 12.6, y0: .5, y1: 4.25 } }; },
   deskSpots: key => { const s = M.seats.get(key), g = s && geo(s); return g ? { g: { x: g.x, y: g.y, w: g.w, h: g.h, face: g.face, big: !!g.big }, spots: spotsOf(g), mon: monitorGeo(g) } : null; },
-  pause: on => { DEMO.paused = !!on; kick(); }, setTheme: id => applyTheme(id), theme: () => STY.id, themes: () => Object.keys(THEMES), skyAt: (ms, place) => { SKY.fixMs = ms == null ? null : +ms; SKY.fixPlace = place || null; SKY.memo = null; kick(); }, setWeather: w => { SKY.fixWeather = w === undefined ? undefined : w; SKY.memo = null; kick(); }, sky: () => { const s = skyState(); return { phase: s.phase, sun: s.sun, moon: s.moon, kind: s.kind, place: s.place, top: s.top, asked: SKY.asked }; }, follow: key => startFollow(key), unfollow: () => stopFollow(), setMode: (m, i) => setMode(m, i), setArea: (id, i) => setArea(id, i),
+  pause: on => { DEMO.paused = !!on; kick(); }, setTheme: id => applyTheme(id), theme: () => STY.id, themes: () => Object.keys(THEMES), statusColours: () => JSON.stringify([COL, SCREEN, ST]), skyAt: (ms, place) => { SKY.fixMs = ms == null ? null : +ms; SKY.fixPlace = place || null; SKY.memo = null; kick(); }, setWeather: w => { SKY.fixWeather = w === undefined ? undefined : w; SKY.memo = null; kick(); }, sky: () => { const s = skyState(); return { phase: s.phase, sun: s.sun, moon: s.moon, kind: s.kind, place: s.place, top: s.top, asked: SKY.asked }; }, follow: key => startFollow(key), unfollow: () => stopFollow(), setMode: (m, i) => setMode(m, i), setArea: (id, i) => setArea(id, i),
   forceIdle: () => { lastInput = performance.now() - IDLE_AFTER - 1; goal = null; }, isActive: () => active(), busy: () => busy(), cam: () => ({ ...cam }), lod: () => lodFar ? 'far' : 'near',
   addBots: n => addBots(n), setTemps: n => { while (DB.temps.length < n) { const k = sim.tempN++; DB.temps.push({ id: 'tmp' + k, name: '臨時 #' + k, cli: '示範 CLI-' + 'ABC'[k % 3], state: 'working', opened_at: iso(clockMs() + k), task: { id: '—', title: TEMP_TASKS[k % 5], status: 'doing', next: '做完就關分頁' }, events: [], _lock: 1e9 }); } while (DB.temps.length > n) DB.temps.pop(); push(); },
   assignments: () => Object.fromEntries([...M.ents.values()].filter(e => e.kind === 'bot').map(e => [e.id, e.seatKey + (e.gone ? ' (已離開)' : '')])),
@@ -4079,7 +4057,7 @@ window.__office = {
 
 /* ══════════ 啟動 ══════════ */
 (function boot() {
-  if (!BOARD_ONLY) applyTheme(store.get('theme', 'night'));   // 辦公室風格（設定 → 辦公室；office.json 的 theme，手機 App 跟著桌面那台）
+  if (!BOARD_ONLY) applyTheme(store.get('theme', 'night')); else document.documentElement.dataset.sty = 'night';   // 辦公室風格（設定 → 辦公室；office.json 的 theme，手機 App 跟著桌面那台）
   const narrow = innerWidth <= 720, weak = (navigator.hardwareConcurrency || 8) < 4 || (navigator.deviceMemory || 8) < 4;
   const saved = store.get('mode', null), m = saved === 'flat' || saved === 'iso' ? saved : (narrow || weak ? 'flat' : 'iso');
   V.to = V.m = V.from = m === 'flat' ? 0 : 1; V.k = 1;

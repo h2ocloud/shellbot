@@ -363,6 +363,23 @@
       }
     },
     {
+      "id": "office-style",
+      "surfaces": [
+        "desktop"
+      ],
+      "since": "0.66.0",
+      "flag": "experimental_office",
+      "open": "settings:office",
+      "title": {
+        "en": "Office style",
+        "zh": "辦公室風格"
+      },
+      "body": {
+        "en": "Settings → Office → Office style: warm wood or nordic light (night blue is the original). Outside the windows the sun rises in the east and sets in the west for this computer's place, with the weather there. The phone app follows.",
+        "zh": "設定 → 辦公室 → 辦公室風格：暖木或北歐淺色（夜藍是原本的樣子）。窗外的太陽依這台電腦的位置東升西落，也照當地天氣畫雲、雨、雪。手機 App 跟著同一個風格。"
+      }
+    },
+    {
       "id": "office-personnel",
       "surfaces": [
         "desktop"

@@ -2,8 +2,8 @@
 """Office styles (辦公室風格) and the real sky outside the windows, and the secretary's desk without overlaps.
 
 Requested: an office style picker in Settings → Office, kept in office.json (not localStorage), the same on the phone; the
-look only (floor, walls, furniture, the view outside), never the seats or what the status colours mean. Five styles, all
-built: night blue (the original, the default), warm wood, industrial loft, greenhouse, nordic light. Outside the windows the
+look only (floor, walls, furniture, the view outside), never the seats or what the status colours mean. Three styles:
+night blue (the original, the default), warm wood, nordic light. Outside the windows the
 sun rises in the east and sets in the west at this computer's place, and the weather there is drawn. Also reported: on the
 secretary's desk (it faces up-left) the default monitor and potted plant overlapped.
 
@@ -24,7 +24,7 @@ Part 2, office.html with a stand-in host:
   - the board alone stays night blue and asks nothing
   - in the phone app (SFOfficeApp) the desktop's style is used
 Part 3, the main window (index.html with a stand-in pywebview api):
-  - Settings → Office has 辦公室風格 (five choices) and 窗外天氣 (on by default, the place in its hint)
+  - Settings → Office has 辦公室風格 (three choices) and 窗外天氣 (on by default, the place in its hint)
   - picking a style before the office was ever opened reads office.json first and saves the style WITH the seats
   - when office.json cannot be read, nothing is written (the seats are never overwritten by a lone key)
   - an open office changes at once; night blue is saved as no key
@@ -48,7 +48,7 @@ except ImportError:
 HERE = pathlib.Path(__file__).resolve().parent
 SHOTS = HERE / "qa-shots"
 passed = failed = 0
-THEMES = ["night", "wood", "loft", "green", "nordic"]
+THEMES = ["night", "wood", "nordic"]
 TAIPEI = {"lat": 25.05, "lon": 121.5}
 SYDNEY = {"lat": -33.87, "lon": 151.21}
 POLAR = {"lat": 78.22, "lon": 15.65}
@@ -94,7 +94,7 @@ def monitor_rect(mon):
     return {"x": x, "y": y, "w": w, "h": h}
 
 
-STATUS = "() => JSON.stringify([COL, SCREEN, ST])"
+STATUS = "() => __office.statusColours()"
 SCREEN_BOX = """([x, y, w, h, z0, z1]) => { const pts = [];
   for (const a of [x, x + w]) for (const b of [y, y + h]) for (const z of [z0, z1]) pts.push(__office.proj(a, b, z));
   return { x0: Math.min(...pts.map(p => p.x)), x1: Math.max(...pts.map(p => p.x)), y0: Math.min(...pts.map(p => p.y)), y1: Math.max(...pts.map(p => p.y)) }; }"""
@@ -126,7 +126,7 @@ def standalone(browser, base, engine):
     check("the default style is night blue", page.evaluate("__office.theme()") == "night")
     check("…the page says so (html data-sty), and it is not the light chrome",
           page.evaluate("document.documentElement.dataset.sty === 'night' && !document.documentElement.classList.contains('sty-light')"))
-    check("five styles", page.evaluate("__office.themes()") == THEMES, page.evaluate("__office.themes()"))
+    check("three styles", page.evaluate("__office.themes()") == THEMES, page.evaluate("__office.themes()"))
     base_status = page.evaluate(STATUS)
     same = True
     for t in THEMES:
@@ -228,7 +228,8 @@ def standalone(browser, base, engine):
     sec = page.evaluate("__office.deskSpots('sec')")
     g, fl = sec["g"], sec["spots"]["floor"]
     check("the secretary's desk faces up-left ('nx')", g["face"] == "nx", g)
-    check("…its floor spot is beside the desk's far end, not behind the desk (behind it, the 3D monitor covers it)", fl["x"] >= g["x"] and fl["y"] + fl["h"] <= g["y"], (g, fl))
+    check("…its floor spot is beside an end of the desk, not behind it (behind it, the 3D monitor covers it)",
+          fl["x"] >= g["x"] and (fl["y"] + fl["h"] <= g["y"] or fl["y"] >= g["y"] + g["h"]), (g, fl))
     mx, my, mw, mh = sec["mon"]["bx"]
     mon_box = page.evaluate(SCREEN_BOX, [mx, my, mw, mh, sec["mon"]["z0"], sec["mon"]["z1"]])
     crossing = []
@@ -288,9 +289,9 @@ def with_host(browser, base, engine):
     page, errs = page_with({})
     n = lambda pg, name: pg.evaluate("(n) => window.__calls.filter(c => c[0] === n).length", name)
     check("no style kept: night blue, and the sky is never asked", page.evaluate("__office.theme()") == "night" and n(page, "sky") == 0)
-    page.evaluate("Office.setTheme('loft')")
+    page.evaluate("Office.setTheme('nordic')")
     page.wait_for_timeout(300)
-    check("Office.setTheme (Settings while the office is open) changes it at once, and the sky is asked once", page.evaluate("__office.theme()") == "loft" and n(page, "sky") == 1)
+    check("Office.setTheme (Settings while the office is open) changes it at once, and the sky is asked once", page.evaluate("__office.theme()") == "nordic" and n(page, "sky") == 1)
     check("…with the host's place and weather", page.evaluate("__office.sky().place.lat") == -33.87 and page.evaluate("__office.sky().kind") == "snow")
     page.evaluate("Office.setTheme('night')")
     page.wait_for_timeout(200)
@@ -351,6 +352,8 @@ def main_window(browser, base, engine):
         page.add_init_script(main_stub(prefs, ok))
         page.goto(base + "/index.html")
         page.wait_for_function("window.SFOffice", timeout=20000)
+        page.wait_for_timeout(500)   # no tabs: the window opens the new-tab launcher first; put it away
+        page.evaluate("document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'))")
         page.click("#btn-settings")
         page.click('#settings-tabs-bar [data-tab="office"]')
         page.wait_for_selector("#setting-office-theme", state="attached", timeout=5000)
@@ -363,7 +366,7 @@ def main_window(browser, base, engine):
         return { opts: [...s.options].map(o => [o.value, o.textContent]), value: s.value, panel: s.closest('.settings-tab-panel').id,
                  label: document.querySelector('#sfo-theme .sx-label').textContent, wOn: w.classList.contains('on'),
                  wHint: document.querySelector('#sfo-weather .sx-hint').textContent }; }""")
-    check("辦公室風格 sits in Settings → Office with five choices in the page's language, night blue picked",
+    check("辦公室風格 sits in Settings → Office with three choices in the page's language, night blue picked",
           ui["panel"] == "settings-panel-office" and [o[0] for o in ui["opts"]] == THEMES and ui["opts"][1][1] == "暖木" and ui["value"] == "night" and ui["label"] == "辦公室風格", ui)
     check("窗外天氣 is on by default, its hint names the place (from the time zone) and the source", ui["wOn"] and "Asia/Taipei" in ui["wHint"] and "MET Norway" in ui["wHint"], ui["wHint"])
     check("asking the place for the hint never asks for weather (want_weather false)",
@@ -385,7 +388,7 @@ def main_window(browser, base, engine):
     page.close()
 
     page = open_settings(seats, ok=False)
-    page.select_option("#setting-office-theme", "loft")
+    page.select_option("#setting-office-theme", "nordic")
     page.wait_for_timeout(500)
     check("office.json cannot be read: nothing is written, and the picker goes back",
           page.evaluate("window.__saved.length") == 0 and page.evaluate("document.getElementById('setting-office-theme').value") == "night")
