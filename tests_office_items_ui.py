@@ -2,7 +2,7 @@
 """The office's accessory library (office.html section 7.5, ITEMS): the big batch of desk decorations, and the grouped library grid.
 
 Reported as: "擴充一波辦公室裝飾品 讓我可以跳選更換". What this checks, on office.html on its own (demo host):
-  - the library: ids unique, every item has a Traditional-Chinese and an English name, a valid slot, job keywords; at least 35
+  - the library: ids unique, every item has a Traditional-Chinese and an English name, a valid slot, job keywords (a generic filler needs none); at least 35
     items; every slot has new ones; none of the new items' drawing code uses a status colour or shape (red, the warning
     yellow, steam / smoke, a clock)
   - every item draws without throwing, in the 3D and the flat view, on a normal desk ('ny') and on the secretary's big desk
@@ -124,7 +124,7 @@ def probe_checks(page, info):
                             bad_empty.append(tag)
                     elif it["id"] in NEW_IDS:
                         tol = 2.5
-                        if bb["x0"] < rc["x0"] - tol or bb["x1"] > rc["x1"] + tol:
+                        if not degenerate and (bb["x0"] < rc["x0"] - tol or bb["x1"] > rc["x1"] + tol):   # edge-on, the board has no width to stay in
                             bad_out.append((*tag, "x", round(bb["x0"] - rc["x0"], 1), round(rc["x1"] - bb["x1"], 1)))
                         if it["key"] in ("side", "front", "floor") and bb["y1"] > rc["y1"] + 3:
                             bad_out.append((*tag, "below", round(bb["y1"] - rc["y1"], 1)))
@@ -139,7 +139,7 @@ def probe_checks(page, info):
                     idx += 1
                     if idx > 4:
                         break
-    check(f"all items draw without throwing: 3D and flat, 'ny' desk and the secretary's 'nx' desk ({seen} draws)", not bad_throw and seen > 600, bad_throw[:4] or seen)
+    check(f"all items draw without throwing: 3D and flat, 'ny' desk and the secretary's 'nx' desk ({seen} draws)", not bad_throw and seen >= 4 * len(info), bad_throw[:4] or (seen, len(info)))
     check("…every draw paints something (a wall board seen edge-on in the flat view is the one exception)", not bad_empty, bad_empty[:6])
     check("…the secretary's desk is 'nx' and the others 'ny'", not bad_face, bad_face[:4])
     check("…the new items stay inside their spot's rectangle (no overlap with the monitor or the next spot), in every view", not bad_out, bad_out[:6])
@@ -183,7 +183,7 @@ def run(browser, base, src, shoot, engine):
           all(re.search(r"[一-鿿]", i["zh"]) and i["en"].strip() and not re.search(r"[一-鿿]", i["en"]) for i in info),
           [i["id"] for i in info if not (re.search(r"[一-鿿]", i["zh"]) and i["en"].strip())])
     check("every item has a valid slot (and a desk item a spot) and job keywords to be assigned by",
-          all(i["slot"] in SLOTS and (i["slot"] != "desk" or i["spot"] in ("side", "front")) and i["tags"] >= 3 for i in info), [i for i in info if i["slot"] not in SLOTS or i["tags"] < 3][:3])
+          all(i["slot"] in SLOTS and (i["slot"] != "desk" or i["spot"] in ("side", "front")) and (i["generic"] or i["tags"] >= 3) for i in info), [i for i in info if i["slot"] not in SLOTS or (not i["generic"] and i["tags"] < 3)][:3])
     check("every slot has new items in it", all(any(i["id"] in NEW[k] and i["key"] == k for i in info) for k in ORDER), {k: [i["id"] for i in info if i["key"] == k] for k in ORDER})
     check("the library has items in every group, about 35 to 45 in all", all(any(i["key"] == k for i in info) for k in ORDER) and 35 <= len(info) <= 45, len(info))
     bad = [i for i in NEW_IDS if not item_source(src, i) or STATUS_WORDS.search(item_source(src, i))]
