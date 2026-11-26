@@ -6,6 +6,35 @@
 > 撰寫規範見 [`docs/changelog-guide.md`](docs/changelog-guide.md)，
 > 由 `tests_changelog_format.py` 強制檢查。
 
+## v0.65.0 (2026-11-25)
+
+### Added
+
+- **The office opens in the phone app.**
+  On an iPhone or iPad paired with this computer, the app can now open the office: the same rooms, who is busy, waiting
+  on you or stuck, the lobby board, the calendar and the ops board, with the paired computers' rooms beside this one.
+  On the phone it is read only. Tapping a person opens their conversation on the app's chat page, and nothing there moves a
+  seat, changes groups or writes this computer's office settings. On a phone, the legend starts folded on a low screen, and
+  seat dragging is not offered. The phone asks this computer through a fixed list of read-only calls and loads the office
+  page from it, so it always matches the version installed here; the office switch here still decides whether it opens.
+  Needs the phone app version that has the office.
+
+  **辦公室搬進手機 App。** 跟這台電腦配對的 iPhone、iPad，App 裡現在也能打開辦公室：同樣的房間，誰在忙、誰在等你、誰卡住，大廳的
+  看板、日曆、維運戰情，配對電腦的房間也在旁邊。手機上只能看：點一個人會在 App 的對話頁打開他的對話，不會換位子、改分組，也不會寫
+  這台電腦的辦公室設定。手機螢幕矮時圖例預設收起，不提供拖曳換位子。手機只透過一份固定的唯讀呼叫清單向這台電腦要資料，辦公室頁面也從
+  這台載入，所以永遠跟這台裝的版本一致；這台的辦公室開關關著就打不開。需要有辦公室的 App 版本。
+
+### Internal
+
+- The office's data layer moved to `web/office_core.js` (build and track are pure), so the desktop and the phone app draw from
+  the same snapshot code. `web/office_app_host.js` is the phone's host: it asks over the app's bridge and does nothing on the
+  desktop. A script error after the office is drawn is reported to the app with its source line and no longer closes the
+  room. New: `/link/office/api`, `/link/office/asset`, the ping's `office` field (docs/mobile-link.md).
+
+  辦公室的資料層搬到 `web/office_core.js`（build、track 是純函式），桌面和手機 App 用同一份畫面資料程式。`web/office_app_host.js` 是
+  手機端的接頭：透過 App 的橋接要資料，在桌面上什麼都不做。辦公室畫好之後的程式錯誤會連同來源行號回報給 App，不再把房間關掉。
+  新增 `/link/office/api`、`/link/office/asset`、ping 的 `office` 欄位（docs/mobile-link.md）。
+
 ## v0.64.3 (2026-11-24)
 
 ### Added

@@ -20,8 +20,8 @@ sfctl version
 ```
 
 ```
-OK ShellBot v0.64.0
-   version: 0.64.0
+OK ShellBot v0.65.0
+   version: 0.65.0
    experimental: {"experimental_a2a": true, "experimental_bots": true, "experimental_groups": true, "experimental_loops": false, "experimental_office": false}
 ```
 
@@ -771,6 +771,7 @@ sfctl deliver show N
 | `sfctl call github <tool> --args '{json}'` / `sfctl call --list`: GitHub through ShellBot's own MCP gateway (`shellbot-gateway`, added to every AI program and account folder from Settings → Connect; the token stays in the system key store; read-only unless writing is switched on). Figma is connected by each AI that Figma approves (Claude Code, Codex, Cursor) from the same page | 0.64.0 |
 | A bot's `MEMORY.md` past 80% is tidied by the save request (`bot_memory_compact`, on by default): detail moves to `memory/<topic>.md`, `MEMORY.md` keeps an index; the wake-up brief lists those files; the bookshelf shows them and has a "tidy up" button | 0.64.1 |
 | `sfctl bots-self [--job "…"]`: a bot reads, and rewrites, its own job (執掌) from its own tab, the old one kept in `role-history.md`; the first save request of a day asks the bot to look at its job and skills (`bot_role_review`, on by default) | 0.64.3 |
+| No new commands: the office opens in the phone app too (read only: who is busy, waiting or stuck, the board, the calendar, the ops board; a person opens their conversation on the app's chat page). A paired phone asks through `POST /link/office/api` (a fixed list of read-only calls) and loads the page from `/link/office/asset`; nothing on the phone writes seats, groups or office.json | 0.65.0 |
 
 When a feature is newer than the running build, the command simply does not
 exist and you get `ERR Unknown command`. Report that; do not fall back to
