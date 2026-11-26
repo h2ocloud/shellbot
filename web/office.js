@@ -556,9 +556,9 @@
       'The 辦公室 button at the top of the sidebar opens an office floor: bots (staff) at their desks, AI tabs that are not bots (interns) at a long table, a Claude Code tab\'s subagents (part-timers) beside it; who is busy, waiting on you or stuck. On for a new install.',
       '側欄最上面的「辦公室」鈕會打開一層辦公室：bot（正職）坐自己的桌子，不是 bot 的 AI 分頁（實習生）坐長桌，Claude Code 分頁派出去的 subagent（工讀生）站在旁邊；誰在忙、誰在等你、誰卡住，看圖就知道。新安裝預設打開。');
     sw.classList.toggle('on', enabled());
+    injectShare();       // right under the office switch (the share-off switch belongs to it); the look comes after
     injectTheme();
     injectWeather();
-    injectShare();
   }
 
   // ── 辦公室風格 (Settings → Office): office.json's `theme`; the phone app shows the desktop's ─────────────────────────

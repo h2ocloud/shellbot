@@ -1438,7 +1438,7 @@ function floorLines(x, x0, y0, w, h, col) {   // 地板的接縫：格線（grid
    拿不到位置時用看的人的時差估經度、緯度當 30°。天氣拿不到或太舊就當晴天。
    窗都朝赤道（北半球朝南）：每間房的左牆加後牆是一整片由東到西的景，太陽早上出現在最左邊的窗、中午在中間、傍晚在最右邊；
    南半球反過來。只有選了 sky 為 'time' 的風格才算、才問天氣（夜藍不問）。 */
-const RAD = Math.PI / 180, OBL = 23.4397 * RAD, SYNODIC = 29.530588;
+const RAD = Math.PI / 180, OBL = 23.4397 * RAD, SYNODIC = 29.530588, SUN_SEEN = [];
 const clamp1 = v => Math.max(-1, Math.min(1, v));
 const SKY_COL = { day: { top: '#8ec3ea', low: '#c4e2f4', city: '#7690a8' }, dusk: { top: '#7b6aa8', low: '#eba077', city: '#4b4668' }, night: { top: '#162040', low: '#202a4b', city: '#0d1326' } };
 const SKY = { place: null, weather: null, asked: 0, ver: 0, fixMs: null, fixPlace: null, fixWeather: undefined, memo: null, memoAt: -1 };
@@ -1506,13 +1506,14 @@ function skyWindow(x, x0, y0, x1, y1, H, u1, u2, sky, i, room) {
   const r = room, L = r ? r.h + r.w : 1, pn = (wx, wy) => !r ? .5 : Math.abs(wx - r.x) < 1e-6 && Math.abs(x0 - x1) < 1e-6 ? (r.y + r.h - wy) / L : (r.h + wx - r.x) / L;
   const pa = pn(lerp(x0, x1, u1), lerp(y0, y1, u1)), pb = pn(lerp(x0, x1, u2), lerp(y0, y1, u2));
   // 景只算窗（skyStrip）：這間房的窗依東→西接成一整條，太陽、月亮在地平線上時一定落在某一扇窗裡，不會剛好躲在兩扇窗之間的牆上
-  const w = r ? skyStrip(r).find(s => s.i === i && s.x0 === x0 && s.y0 === y0 && s.x1 === x1 && s.y1 === y1) : null;
+  const strip = r ? skyStrip(r) : null, wi = strip ? strip.findIndex(s => s.i === i && s.x0 === x0 && s.y0 === y0 && s.x1 === x1 && s.y1 === y1) : -1, w = wi >= 0 ? strip[wi] : null;
   const inWin = w ? (p => { const t = (p - w.c0) / (w.c1 - w.c0); return t < 0 || t >= 1 ? NaN : pb >= pa ? t : 1 - t; }) : (p => (p - pa) / (pb - pa));
   const day = sky.dayK > .5, wk = sky.kind, anim = !RM;
   poly(x, q(0, 1, 0, 1), sky.top); poly(x, q(0, 1, 0, .4), sky.low);
   if (sky.clearSky && sky.dayK < .35) for (let s = 0; s < 3; s++) { const m = at(.15 + hash2(i, s) * .7, .62 + hash2(s, i) * .32); ellipse(x, m.x, m.y, .9, .9, `rgba(230,233,245,${.75 * (1 - sky.dayK / .35)})`); }   // 星星
   const body = (b, rad, draw) => { const u = inWin(b.pan); if (b.el < -2 || !(u >= -.1 && u <= 1.1)) return; const v = .3 + .62 * Math.min(1, Math.max(0, b.el) / 50); const m = at(Math.max(.08, Math.min(.92, u)), v); draw(m, rad); };
   if (sky.clearSky || wk === 'cloudy' && sky.sun.el > 0) body(sky.sun, 3.6, (m, rd) => {   // 太陽：低的時候偏橘、大一點；陰天只剩一團淡光
+    SUN_SEEN.push({ room: r ? r.id : '', i: wi, n: strip ? strip.length : 0 });   // 給測試：這一幀太陽畫在哪間房的第幾扇窗
     const low = 1 - smooth(4, 20, sky.sun.el), dim = wk === 'cloudy' ? .35 : 1;
     if (low > .2) ellipse(x, m.x, m.y, rd * 2.2, rd * 2.2, `rgba(255,190,110,${.25 * low * dim})`);
     ellipse(x, m.x, m.y, rd + low, rd + low, wk === 'cloudy' ? 'rgba(255,245,220,.35)' : mixHex('#ffd76a', '#ff9a52', low)); });
@@ -3517,7 +3518,7 @@ function frame() {
   const now = performance.now(), gap = 1000 / (active() ? FPS_ON : FPS_IDLE);
   if (now - lastT < gap - 1) { schedule(); return; }   // 保險：兩幀至少隔 50ms（閒置 200ms）
   const dt = Math.min(.25, Math.max(0, (now - lastT) / 1000)); lastT = now; T += dt;
-  skyAsk(false);
+  skyAsk(false); SUN_SEEN.length = 0;
   if (busy()) busyFrames++;
   try {
     if (V.k < 1) { V.k = Math.min(1, V.k + dt / .7); V.m = lerp(V.from, V.to, ease(V.k)); if (V.k >= 1) { V.m = V.to; V.tp = wantTp(); } }
@@ -4145,7 +4146,7 @@ window.__office = {
     const wall = Object.entries(WALL_OBJ).map(([id, o]) => ({ id, x0: o.q[0], x1: o.q[2], z0: o.q[6], z1: o.q[7] }));
     return { w: r.w, h: r.h, floor, fixtures, wall, rug: { x0: 8.9, x1: 12.6, y0: .5, y1: 4.25 } }; },
   deskSpots: key => { const s = M.seats.get(key), g = s && geo(s); return g ? { g: { x: g.x, y: g.y, w: g.w, h: g.h, face: g.face, big: !!g.big }, spots: spotsOf(g), mon: monitorGeo(g) } : null; },
-  pause: on => { DEMO.paused = !!on; kick(); }, setTheme: id => applyTheme(id), theme: () => STY.id, themes: () => Object.keys(THEMES), statusColours: () => JSON.stringify([COL, SCREEN, ST]), skyAt: (ms, place) => { SKY.fixMs = ms == null ? null : +ms; SKY.fixPlace = place || null; SKY.memo = null; kick(); }, setWeather: w => { SKY.fixWeather = w === undefined ? undefined : w; SKY.memo = null; kick(); }, sky: () => { const s = skyState(); return { phase: s.phase, sun: s.sun, moon: s.moon, kind: s.kind, place: s.place, top: s.top, asked: SKY.asked }; }, follow: key => startFollow(key), unfollow: () => stopFollow(), setMode: (m, i) => setMode(m, i), setArea: (id, i) => setArea(id, i),
+  pause: on => { DEMO.paused = !!on; kick(); }, setTheme: id => applyTheme(id), theme: () => STY.id, themes: () => Object.keys(THEMES), statusColours: () => JSON.stringify([COL, SCREEN, ST]), sunSeen: () => SUN_SEEN.slice(), skyAt: (ms, place) => { SKY.fixMs = ms == null ? null : +ms; SKY.fixPlace = place || null; SKY.memo = null; kick(); }, setWeather: w => { SKY.fixWeather = w === undefined ? undefined : w; SKY.memo = null; kick(); }, sky: () => { const s = skyState(); return { phase: s.phase, sun: s.sun, moon: s.moon, kind: s.kind, place: s.place, top: s.top, asked: SKY.asked }; }, follow: key => startFollow(key), unfollow: () => stopFollow(), setMode: (m, i) => setMode(m, i), setArea: (id, i) => setArea(id, i),
   forceIdle: () => { lastInput = performance.now() - IDLE_AFTER - 1; goal = null; }, isActive: () => active(), busy: () => busy(), cam: () => ({ ...cam }), lod: () => lodFar ? 'far' : 'near',
   addBots: n => addBots(n), setTemps: n => { while (DB.temps.length < n) { const k = sim.tempN++; DB.temps.push({ id: 'tmp' + k, name: '臨時 #' + k, cli: '示範 CLI-' + 'ABC'[k % 3], state: 'working', opened_at: iso(clockMs() + k), task: { id: '—', title: TEMP_TASKS[k % 5], status: 'doing', next: '做完就關分頁' }, events: [], _lock: 1e9 }); } while (DB.temps.length > n) DB.temps.pop(); push(); },
   assignments: () => Object.fromEntries([...M.ents.values()].filter(e => e.kind === 'bot').map(e => [e.id, e.seatKey + (e.gone ? ' (已離開)' : '')])),

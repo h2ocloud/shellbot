@@ -165,7 +165,7 @@ def standalone(browser, base, engine):
 
     print(f"[{engine}] the sun and the moon")
     page.evaluate("__office.setTheme('wood')")
-    moments = {"morning": utc(2026, 11, 24, 23), "noon": utc(2026, 11, 25, 4), "dusk": utc(2026, 11, 25, 8, 50), "night": utc(2026, 11, 25, 14)}
+    moments = {"morning": utc(2026, 11, 24, 23), "noon": utc(2026, 11, 25, 4), "afternoon": utc(2026, 11, 25, 7), "dusk": utc(2026, 11, 25, 8, 50), "night": utc(2026, 11, 25, 14)}
     sky = {}
     for name, ms in moments.items():
         page.evaluate("__office.skyAt(%d, %s)" % (ms, json.dumps(TAIPEI)))
@@ -183,6 +183,21 @@ def standalone(browser, base, engine):
     page.evaluate("__office.skyAt(%d, %s)" % (utc(2026, 11, 24, 21), json.dumps(SYDNEY)))      # 08:00 in Sydney
     s = page.evaluate("__office.sky()")["sun"]
     check("Sydney 08:00: the windows face north, so the morning sun (east) is on the right", s["el"] > 10 and s["pan"] > .55, s)
+
+    def sun_drawn(ms, place):      # which window each room drew the sun in, in the frame after the clock was set
+        page.evaluate("__office.setArea('all', true)")
+        page.evaluate("__office.skyAt(%d, %s)" % (ms, json.dumps(place)))
+        page.wait_for_timeout(300)
+        return page.evaluate("__office.sunSeen()")
+    seen = [sun_drawn(utc(2026, 11, 25, h), TAIPEI) for h in (1, 4, 7)]          # 09:00, 12:00, 15:00 in Taipei
+    dup = [(k, e) for k, ss in enumerate(seen) for j, e in enumerate(ss) if any(f["room"] == e["room"] for f in ss[:j])]
+    check("Taipei 09:00, 12:00, 15:00: the sun is drawn in the lobby, in exactly one window of each room it shows in",
+          all(any(e["room"] == "lobby" and e["i"] >= 0 for e in ss) for ss in seen) and not dup, (seen, dup))
+    lob = [next((e["i"] for e in ss if e["room"] == "lobby"), None) for ss in seen]
+    check("…and it moves left to right through the day (the lobby's windows, east to west)", None not in lob and lob[0] < lob[1] < lob[2], lob)
+    syd = [sun_drawn(ms, SYDNEY) for ms in (utc(2026, 11, 24, 22), utc(2026, 11, 25, 1), utc(2026, 11, 25, 4))]   # 09:00, 12:00, 15:00 in Sydney
+    sl = [next((e["i"] for e in ss if e["room"] == "lobby"), None) for ss in syd]
+    check("Sydney 09:00, 12:00, 15:00: right to left (the windows face north)", None not in sl and sl[0] > sl[1] > sl[2], sl)
     page.evaluate("__office.skyAt(%d, %s)" % (utc(2026, 12, 21, 11), json.dumps(POLAR)))
     p = page.evaluate("__office.sky()")
     check("near the pole in December: polar night, and no NaN anywhere",
