@@ -6,6 +6,69 @@
 > 撰寫規範見 [`docs/changelog-guide.md`](docs/changelog-guide.md)，
 > 由 `tests_changelog_format.py` 強制檢查。
 
+## v0.66.0 (2026-11-26)
+
+### Added
+
+- **Office styles, and the real sky outside the office windows.**
+  Requested: a choice of office look, remembered for this computer and the same on the phone, with the sun rising in
+  the east and setting in the west outside, and the local weather. Settings → Office → 辦公室風格 now offers night blue
+  (the original, still the default), warm wood and nordic light. A style changes only the look: the floor, walls,
+  furniture, plants and the view outside. Seats, people, and what a lit screen, the red !, the signs and the coffee cup
+  mean stay exactly as they were. It is kept in the office's own settings file, switches at once in an open office, and
+  the phone app shows the desktop's style (also when it comes back to the foreground). In warm wood and nordic light the
+  windows show the sky at this computer's place: the place comes from the computer's time zone (its main city) and is
+  shown in Settings; the sun and the moon (with its phase) are worked out from it and the clock, so the morning sun is
+  in the left windows, noon in the middle and the evening sun on the right, with dusk and night colours by the sun's
+  height. A second switch, 窗外天氣 (on), also draws the weather there: clouds, overcast, fog, rain, snow and thunder.
+  Weather comes from MET Norway (free, CC BY 4.0); ShellBot asks only while the office is open in such a style, at most
+  every 30 minutes, and sends only that approximate place. Nordic light also turns the office's toolbar and legend
+  light. 3D and flat views both follow the style.
+
+  **辦公室風格，窗外是真的天空。** 需求：辦公室要能換風格，記在這台電腦、手機也一樣；窗外的太陽要東升西落，最好反映當地天氣。
+  設定 → 辦公室 → 辦公室風格現在可以選夜藍（原本的樣子，仍是預設）、暖木、北歐淺色。風格只換外觀：地板、牆、家具、植物和窗外的景；
+  座位、人物，以及螢幕亮、紅色 !、牌子、咖啡杯代表的意思都不變。風格存在辦公室自己的設定檔，開著的辦公室立刻換，手機 App 跟著桌面
+  那台的風格（App 從背景回來也會跟上）。暖木和北歐淺色的窗外是這台電腦所在地的天空：位置由電腦的時區（該時區的主要城市）推得，設定頁
+  會寫出來；太陽、月亮（含盈虧）依位置和時間算，早上的太陽在左邊的窗、中午在中間、傍晚在右邊，天色依太陽高度從白天、黃昏到夜晚。
+  另一個開關「窗外天氣」（預設打開）照當地天氣畫雲、陰天、霧、雨、雪、打雷；天氣資料來自 MET Norway（挪威氣象局，免費，CC BY 4.0），
+  只在辦公室開著、用這兩種風格時才問，最多每 30 分鐘一次，只送這個大約的位置。北歐淺色連辦公室的工具列和圖例也換成淺色。立體和平面
+  都跟著風格。
+
+- **19 more office accessories, and the library grouped by place.**
+  Requested: more accessories to pick and swap. The accessory library (follow someone → 配件) adds a succulent, a photo
+  frame, a pen cup, a small trophy, a toy dinosaur, a water bottle and a snow globe for the desk corners; a notebook and
+  pen for the desk's front edge; a floor lamp, a small bookcase, a guitar on a stand and a waste bin beside the desk; a
+  landscape poster, a cork board, a world map and a certificate for the desk board; a little sprout and round glasses
+  on the head; a scarf and a bow tie. The library is grouped by place (desk corner, front edge, floor, board, head,
+  body) with a small heading for each. None of them looks like a status sign.
+
+  **配件多 19 件，配件庫依位置分組。** 需求：配件要多一些可以挑、可以換。配件庫（追蹤某人 → 配件）新增桌角的多肉小盆栽、風景相框、
+  筆筒、小獎盃、小恐龍公仔、水壺、雪花球；桌面前緣的筆記本與筆；桌旁地上的立燈、小書櫃、吉他與立架、紙簍；看板上的山景海報、
+  軟木留言板、世界地圖、證書框；頭上的小芽、圓框眼鏡；身上的圍巾、蝴蝶結領結。配件庫依位置（桌角、桌面前緣、桌旁地上、看板、頭上、
+  身上）分組，每組有小標題。這些配件都不會被看成狀態標誌。
+
+### Fixes
+
+- **The secretary's desk: accessories no longer cover the monitor.**
+  Reported: on the secretary's big desk, which faces up-left, the monitor and the potted plant overlapped by default,
+  and other accessories did too when changed. In 3D the monitor covers what is behind the desk and anything tall on the
+  desk's near front corner covers the monitor. The two desk corners are now both at the far end, the board stays at the
+  near end, and the floor spot is on the rug beside the near end; nothing on this desk crosses the monitor. On the other
+  desks the back corner no longer touches the monitor's base. A test checks every spot against the monitor, in 3D too.
+
+  **秘書長辦公桌的配件不再擋到螢幕。** 回報：秘書長那張面向左上方的大桌，預設的螢幕和盆栽就疊在一起，換配件也會重疊。立體圖裡，
+  桌子後面的東西會被螢幕蓋住，桌子近端靠前那個角上的高東西則會蓋到螢幕。現在桌上兩個角都在遠端，小看板留在近端，地上的位置改到近端
+  旁邊的地毯上；這張桌子上的東西都不會和螢幕交疊。其他桌子後面那個桌角不再壓到螢幕底座。測試會逐一檢查每個位置和螢幕不重疊，立體圖也算。
+
+### Internal
+
+- `office_sky.py` (place from `office_places.py`, a table generated from the public-domain tz database's zone.tab; weather
+  with MET Norway's rules: identifying User-Agent, 4-decimal coordinates, Expires / If-Modified-Since, 30 min, back-off;
+  never blocks the caller), `office_sky` in `api_office.py` and the phone's read-only call list (`link_office.METHODS`),
+  `settings.office_weather`. office.html: THEMES / applyTheme, the sun and moon (low-precision astronomy), the weather
+  layer; itC / itFace helpers for accessories. Tests: tests_office_sky.py, tests_office_theme_ui.py,
+  tests_office_items_ui.py, tests_office_app_host.js.
+
 ## v0.65.0 (2026-11-25)
 
 ### Added

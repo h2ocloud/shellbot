@@ -20,8 +20,8 @@ sfctl version
 ```
 
 ```
-OK ShellBot v0.65.0
-   version: 0.65.0
+OK ShellBot v0.66.0
+   version: 0.66.0
    experimental: {"experimental_a2a": true, "experimental_bots": true, "experimental_groups": true, "experimental_loops": false, "experimental_office": false}
 ```
 
@@ -772,6 +772,7 @@ sfctl deliver show N
 | A bot's `MEMORY.md` past 80% is tidied by the save request (`bot_memory_compact`, on by default): detail moves to `memory/<topic>.md`, `MEMORY.md` keeps an index; the wake-up brief lists those files; the bookshelf shows them and has a "tidy up" button | 0.64.1 |
 | `sfctl bots-self [--job "…"]`: a bot reads, and rewrites, its own job (執掌) from its own tab, the old one kept in `role-history.md`; the first save request of a day asks the bot to look at its job and skills (`bot_role_review`, on by default) | 0.64.3 |
 | No new commands: the office opens in the phone app too (read only: who is busy, waiting or stuck, the board, the calendar, the ops board; a person opens their conversation on the app's chat page). A paired phone asks through `POST /link/office/api` (a fixed list of read-only calls) and loads the page from `/link/office/asset`; nothing on the phone writes seats, groups or office.json | 0.65.0 |
+| No new commands: the office has styles (Settings → Office → 辦公室風格: night blue, the default, warm wood, nordic light; kept in office.json as `theme`, the phone follows the desktop) and, in warm wood and nordic light, the real sky outside the windows (sun and moon for the place of this computer's time zone) and its weather (`settings.office_weather`, on: MET Norway, at most every 30 minutes, only while such an office is open; `office_sky` is also one of the phone's read-only office calls). 19 more accessories, the library grouped by place | 0.66.0 |
 
 When a feature is newer than the running build, the command simply does not
 exist and you get `ERR Unknown command`. Report that; do not fall back to
